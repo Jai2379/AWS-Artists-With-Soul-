@@ -240,7 +240,7 @@ def pgd_attack(
     return x_adv
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def get_predictions(tensor: torch.Tensor, model: torch.nn.Module, k: int = 3) -> list[dict]:
     """Get top-k class predictions and confidence scores."""
     model.eval()
@@ -261,23 +261,36 @@ def get_predictions(tensor: torch.Tensor, model: torch.nn.Module, k: int = 3) ->
 
 
 def embed_watermark(img: Image.Image, text: str) -> Image.Image:
-    """Embed invisible text into the least significant bits of the image (LSB)."""
+    """Embed invisible text into the least significant bits of the image (LSB).
+
+    Fully vectorised: no Python-level pixel loop, so it runs in milliseconds
+    even on multi-megapixel images.
+
+    Bug fixed: the original code used ``~1`` which evaluates to the Python int
+    ``-2``. NumPy ≥ 1.24 raises an OverflowError when trying to store a
+    negative value into a uint8 array.  We use ``np.uint8(0xFE)`` (== 254 ==
+    0b11111110) as the clear-LSB mask instead.
+    """
     if not text:
         return img
-    
-    binary_data = ''.join(format(ord(char), '08b') for char in text) + '00000000' # Null terminator
-    data_len = len(binary_data)
-    
-    img_arr = np.array(img.convert('RGB'))
-    flat = img_arr.flatten()
-    
-    if data_len > len(flat):
-        binary_data = binary_data[:len(flat)]
-        data_len = len(binary_data)
-        
-    for i in range(data_len):
-        flat[i] = (flat[i] & ~1) | int(binary_data[i])
-        
+
+    # Build bit-string + null terminator, then convert to a uint8 array of 0s and 1s
+    binary_str = ''.join(format(ord(c), '08b') for c in text) + '00000000'
+
+    img_arr = np.array(img.convert('RGB'), dtype=np.uint8)
+    flat = img_arr.flatten()   # view when possible, copy otherwise
+
+    data_len = min(len(binary_str), len(flat))
+    binary_str = binary_str[:data_len]
+
+    # Convert the '0'/'1' character string into a uint8 array of 0 and 1 values.
+    # ord('0') == 48, ord('1') == 49, so subtracting 48 gives 0 or 1.
+    bits = np.frombuffer(binary_str.encode('ascii'), dtype=np.uint8) - np.uint8(48)
+
+    # Clear the LSB of each target pixel then set it to the message bit.
+    # 0xFE == 0b11111110 — clears only the LSB, preserves all other bits.
+    flat[:data_len] = (flat[:data_len] & np.uint8(0xFE)) | bits
+
     return Image.fromarray(flat.reshape(img_arr.shape), 'RGB')
 
 
