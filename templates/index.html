@@ -139,7 +139,6 @@
         /* Hero */
         #hero { height: 100vh; padding: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         #bgCanvas, #paintCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #dripCanvas { position: absolute; bottom: 0; left: 0; width: 100%; height: 100px; z-index: 10; pointer-events: none; }
         #bgCanvas { z-index: 1; } #paintCanvas { z-index: 2; }
         .hero-content { position: relative; z-index: 10; text-align: center; pointer-events: none; will-change: transform; }
         .hero-title { font-size: 5vw; line-height: 1.1; margin-bottom: 2rem; }
@@ -147,9 +146,118 @@
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         .hero-desc { max-width: 500px; margin: 0 auto 3rem; font-size: 1rem; }
         .hero-actions { pointer-events: auto; display: flex; gap: 1rem; justify-content: center; }
-        .hero-hint { position: absolute; bottom: 4rem; left: 50%; transform: translateX(-50%); z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; pointer-events: none; }
-        .hint-line { width: 1px; height: 40px; background-color: var(--accent-ember); animation: pulseHeight 2s infinite; }
-        @keyframes pulseHeight { 0%, 100% { height: 20px; opacity: 0.5; } 50% { height: 40px; opacity: 1; } }
+        .hero-hint {
+            position: absolute; bottom: 5rem;
+            left: 0; right: 0; width: 100%;
+            z-index: 11; display: flex; flex-direction: column; align-items: center;
+            gap: 0.6rem; pointer-events: none; text-align: center;
+        }
+        .hero-hint .mono-tiny-upper {
+            letter-spacing: 0.18em; opacity: 0.6;
+            animation: hintFade 2.5s ease-in-out infinite;
+        }
+        .hint-arrow {
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+        }
+        .hint-arrow span {
+            display: block; width: 10px; height: 10px;
+            border-right: 1px solid var(--accent-ember);
+            border-bottom: 1px solid var(--accent-ember);
+            transform: rotate(45deg);
+            animation: chevronDrop 2.5s ease-in-out infinite;
+        }
+        .hint-arrow span:nth-child(2) { animation-delay: 0.15s; opacity: 0.6; }
+        .hint-arrow span:nth-child(3) { animation-delay: 0.30s; opacity: 0.3; }
+        @keyframes chevronDrop {
+            0%,100% { transform: rotate(45deg) translateY(-3px); opacity: 0.9; }
+            50%      { transform: rotate(45deg) translateY(3px);  opacity: 0.4; }
+        }
+        @keyframes hintFade {
+            0%,100% { opacity: 0.6; } 50% { opacity: 0.25; }
+        }
+
+        /* ── Hero ambient background layer ──────────────────────────────── */
+        .hero-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;          /* below bgCanvas (z:1) and paintCanvas (z:2) */
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        /* ── Rainbow orbs ─────────────────────────────────────────────── */
+        .hero-orb {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            will-change: transform;
+            mix-blend-mode: multiply; /* blends into the cream bg naturally */
+        }
+
+        /* red */
+        .hero-orb-1  { width:580px; height:580px; top:-12%; left:-6%;    filter:blur(80px); background:radial-gradient(circle,rgba(255,60,60,0.28) 0%,transparent 68%);   animation:od1 22s ease-in-out infinite; }
+        /* orange */
+        .hero-orb-2  { width:440px; height:440px; top:30%;  left:5%;     filter:blur(70px); background:radial-gradient(circle,rgba(255,130,0,0.26) 0%,transparent 68%);   animation:od2 18s ease-in-out infinite; animation-delay:-5s; }
+        /* amber */
+        .hero-orb-3  { width:360px; height:360px; top:60%;  left:2%;     filter:blur(65px); background:radial-gradient(circle,rgba(255,200,0,0.24) 0%,transparent 68%);   animation:od3 25s ease-in-out infinite; animation-delay:-10s; }
+        /* yellow-green */
+        .hero-orb-4  { width:500px; height:500px; top:5%;   left:35%;    filter:blur(75px); background:radial-gradient(circle,rgba(180,230,0,0.22) 0%,transparent 68%);   animation:od4 20s ease-in-out infinite; animation-delay:-3s; }
+        /* green */
+        .hero-orb-5  { width:420px; height:420px; top:50%;  left:25%;    filter:blur(68px); background:radial-gradient(circle,rgba(50,210,100,0.24) 0%,transparent 68%);  animation:od1 28s ease-in-out infinite reverse; animation-delay:-8s; }
+        /* teal */
+        .hero-orb-6  { width:320px; height:320px; bottom:5%; left:42%;   filter:blur(60px); background:radial-gradient(circle,rgba(0,210,180,0.22) 0%,transparent 68%);   animation:od2 16s ease-in-out infinite reverse; animation-delay:-2s; }
+        /* cyan */
+        .hero-orb-7  { width:480px; height:480px; top:15%;  right:10%;   filter:blur(72px); background:radial-gradient(circle,rgba(0,200,240,0.22) 0%,transparent 68%);   animation:od3 23s ease-in-out infinite; animation-delay:-14s; }
+        /* blue */
+        .hero-orb-8  { width:380px; height:380px; top:55%;  right:18%;   filter:blur(66px); background:radial-gradient(circle,rgba(50,100,255,0.22) 0%,transparent 68%);  animation:od4 19s ease-in-out infinite; animation-delay:-6s; }
+        /* indigo */
+        .hero-orb-9  { width:520px; height:520px; top:-8%;  right:-5%;   filter:blur(78px); background:radial-gradient(circle,rgba(100,50,240,0.24) 0%,transparent 68%);  animation:od1 27s ease-in-out infinite; animation-delay:-11s; }
+        /* violet */
+        .hero-orb-10 { width:400px; height:400px; top:35%;  right:-4%;   filter:blur(70px); background:radial-gradient(circle,rgba(160,50,220,0.22) 0%,transparent 68%);  animation:od2 21s ease-in-out infinite reverse; animation-delay:-4s; }
+        /* magenta */
+        .hero-orb-11 { width:350px; height:350px; bottom:8%; right:6%;   filter:blur(62px); background:radial-gradient(circle,rgba(230,0,180,0.22) 0%,transparent 68%);   animation:od3 17s ease-in-out infinite; animation-delay:-9s; }
+        /* hot-pink */
+        .hero-orb-12 { width:460px; height:460px; bottom:-5%; left:18%;  filter:blur(74px); background:radial-gradient(circle,rgba(255,60,140,0.22) 0%,transparent 68%);  animation:od4 24s ease-in-out infinite reverse; animation-delay:-7s; }
+        /* rose (centre anchor) */
+        .hero-orb-13 { width:300px; height:300px; top:40%;  left:44%;    filter:blur(56px); background:radial-gradient(circle,rgba(255,100,100,0.18) 0%,transparent 68%);  animation:od1 15s ease-in-out infinite; animation-delay:-13s; }
+        /* gold (extra warmth) */
+        .hero-orb-14 { width:260px; height:260px; top:22%;  left:60%;    filter:blur(52px); background:radial-gradient(circle,rgba(255,210,60,0.20) 0%,transparent 68%);   animation:od2 32s ease-in-out infinite; animation-delay:-1s; }
+
+        /* 4 varied drift paths — orbs reuse them to save bytes */
+        @keyframes od1 {
+            0%,100% { transform: translate(0,0)       scale(1);    }
+            25%     { transform: translate(55px,-40px) scale(1.07); }
+            60%     { transform: translate(-30px,60px) scale(0.93); }
+        }
+        @keyframes od2 {
+            0%,100% { transform: translate(0,0)        scale(1);    }
+            40%     { transform: translate(-65px,35px) scale(1.09); }
+            80%     { transform: translate(40px,-50px) scale(0.95); }
+        }
+        @keyframes od3 {
+            0%,100% { transform: translate(0,0)        scale(1);    }
+            30%     { transform: translate(45px,55px)  scale(0.94); }
+            70%     { transform: translate(-55px,-30px)scale(1.06); }
+        }
+        @keyframes od4 {
+            0%,100% { transform: translate(0,0)         scale(1);    }
+            20%     { transform: translate(-40px,-60px) scale(1.05); }
+            55%     { transform: translate(60px,40px)   scale(0.96); }
+            85%     { transform: translate(-20px,30px)  scale(1.03); }
+        }
+
+        /* Mobile: fewer, smaller orbs */
+        @media (max-width: 768px) {
+            .hero-orb { filter: blur(50px) !important; }
+            .hero-orb-1  { width:280px; height:280px; }
+            .hero-orb-4  { width:240px; height:240px; }
+            .hero-orb-7  { width:260px; height:260px; }
+            .hero-orb-9  { width:260px; height:260px; }
+            .hero-orb-12 { width:240px; height:240px; }
+            /* hide the smaller accent orbs on mobile */
+            .hero-orb-2,.hero-orb-3,.hero-orb-6,.hero-orb-8,
+            .hero-orb-10,.hero-orb-11,.hero-orb-13,.hero-orb-14 { display:none; }
+        }
 
         /* Problem Section */
         .split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
@@ -289,9 +397,25 @@
     </nav>
 
     <section id="hero">
+        <!-- Ambient background layer: orbs + grid + labels (below canvases) -->
+        <div class="hero-bg" aria-hidden="true">
+            <div class="hero-orb hero-orb-1"></div>
+            <div class="hero-orb hero-orb-2"></div>
+            <div class="hero-orb hero-orb-3"></div>
+            <div class="hero-orb hero-orb-4"></div>
+            <div class="hero-orb hero-orb-5"></div>
+            <div class="hero-orb hero-orb-6"></div>
+            <div class="hero-orb hero-orb-7"></div>
+            <div class="hero-orb hero-orb-8"></div>
+            <div class="hero-orb hero-orb-9"></div>
+            <div class="hero-orb hero-orb-10"></div>
+            <div class="hero-orb hero-orb-11"></div>
+            <div class="hero-orb hero-orb-12"></div>
+            <div class="hero-orb hero-orb-13"></div>
+            <div class="hero-orb hero-orb-14"></div>
+        </div>
         <canvas id="bgCanvas"></canvas>
         <canvas id="paintCanvas"></canvas>
-        <canvas id="dripCanvas"></canvas>
         <div class="hero-content">
             <h1 class="hero-title font-head">
                 <span id="heroTypeWriter"></span><span class="cursor-blink">|</span>
@@ -306,7 +430,11 @@
         </div>
         <div class="hero-hint fade-up" style="transition-delay: 0.6s">
             <span class="mono-tiny-upper">paint the canvas</span>
-            <div class="hint-line"></div>
+            <div class="hint-arrow">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
         </div>
     </section>
 
@@ -676,46 +804,19 @@
         // --- Background Blobs & Paint ---
         const bgCanvas = document.getElementById('bgCanvas'); const bgCtx = bgCanvas.getContext('2d');
         const paintCanvas = document.getElementById('paintCanvas'); const pCtx = paintCanvas.getContext('2d');
-        const dripCanvas = document.getElementById('dripCanvas'); const dCtx = dripCanvas.getContext('2d');
         
         const blobColors = ['#FF9F1C', '#FFBA08', '#F72585', '#FF8C42', '#FF4E6A', '#FF6B35'];
-        let drips = [];
         let isPainting = false; let lastX = 0; let lastY = 0; let paintColor = '#FF6B35'; let particles = [];
 
         function resizeCanvas() {
             bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight;
             paintCanvas.width = window.innerWidth; paintCanvas.height = window.innerHeight;
-            dripCanvas.width = window.innerWidth; dripCanvas.height = 100;
         }
         window.addEventListener('resize', resizeCanvas);
 
         function hexToRgb(hex) {
             const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : {r:0,g:0,b:0};
-        }
-
-        function initDrips() {
-            drips = []; const numDrips = Math.floor(Math.random() * 5) + 8;
-            for(let i=0; i<numDrips; i++) {
-                drips.push({
-                    x: Math.random() * window.innerWidth,
-                    baseW: Math.random() * 12 + 6, baseL: Math.random() * 40 + 20,
-                    color: blobColors[Math.floor(Math.random() * blobColors.length)],
-                    phase: Math.random() * Math.PI * 2, speed: Math.random() * 0.02 + 0.01
-                });
-            }
-        }
-
-        function renderDrips() {
-            dCtx.clearRect(0, 0, dripCanvas.width, dripCanvas.height);
-            drips.forEach(d => {
-                d.phase += d.speed; const curL = d.baseL + Math.sin(d.phase) * (d.baseL * 0.3);
-                dCtx.shadowBlur = 10; dCtx.shadowColor = d.color;
-                dCtx.beginPath(); dCtx.moveTo(d.x - d.baseW/2, 0);
-                dCtx.bezierCurveTo(d.x - d.baseW/2, curL * 0.5, d.x - d.baseW/4, curL, d.x, curL);
-                dCtx.bezierCurveTo(d.x + d.baseW/4, curL, d.x + d.baseW/2, curL * 0.5, d.x + d.baseW/2, 0);
-                dCtx.fillStyle = d.color; dCtx.fill(); dCtx.shadowBlur = 0;
-            });
         }
 
         function renderBg() {
@@ -726,7 +827,6 @@
             pCtx.fillRect(0, 0, paintCanvas.width, paintCanvas.height);
             pCtx.globalCompositeOperation = 'source-over';
 
-            renderDrips();
             requestAnimationFrame(renderBg);
         }
 
@@ -760,7 +860,7 @@
 
         resizeCanvas();
         
-        initDrips(); renderBg(); updateParticles();
+        renderBg(); updateParticles();
 
         // --- Problem Cycling Panels ---
         function drawMockArt(canvasId, type) {
