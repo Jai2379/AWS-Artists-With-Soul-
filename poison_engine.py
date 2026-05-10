@@ -41,12 +41,12 @@ from torchvision import models, transforms
 # Constants
 # ---------------------------------------------------------------------------
 
-# ImageNet normalisation parameters (used by every torchvision pretrained model)
-IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-IMAGENET_STD  = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-
 # Device configuration for GPU acceleration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# ImageNet normalisation parameters (used by every torchvision pretrained model)
+IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(DEVICE)
+IMAGENET_STD  = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(DEVICE)
 
 # Recommended epsilon ranges for different use-cases
 EPSILON_GUIDE = {
@@ -55,6 +55,43 @@ EPSILON_GUIDE = {
     "moderate":      0.02,    # PSNR ≈ 34 dB  — noticeable on zoom
     "aggressive":    0.04,    # PSNR ≈ 28 dB  — visible artifacts
 }
+
+# Maximum image dimension for attack computation — larger images are
+# temporarily downscaled to this size for the forward/backward passes,
+# then the perturbation is upscaled back to the original resolution.
+MAX_ATTACK_SIZE = 512
+
+
+def resize_tensor_for_attack(
+    tensor: torch.Tensor, max_size: int = MAX_ATTACK_SIZE
+) -> tuple[torch.Tensor, bool]:
+    """Resize tensor to max_size if larger, for faster attack computation.
+
+    Returns:
+        Tuple of (resized_tensor, was_resized).
+    """
+    _, _, h, w = tensor.shape
+    if max(h, w) <= max_size:
+        return tensor, False
+    scale = max_size / max(h, w)
+    new_h, new_w = int(h * scale), int(w * scale)
+    resized = F.interpolate(
+        tensor, size=(new_h, new_w), mode="bilinear", align_corners=False
+    )
+    return resized.detach(), True
+
+
+def upscale_perturbation(
+    original: torch.Tensor,
+    small_original: torch.Tensor,
+    small_poisoned: torch.Tensor,
+) -> torch.Tensor:
+    """Compute perturbation at small resolution and apply it at full resolution."""
+    perturbation = small_poisoned - small_original
+    perturbation_full = F.interpolate(
+        perturbation, size=original.shape[2:], mode="bilinear", align_corners=False
+    )
+    return (original + perturbation_full).clamp(0.0, 1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +172,7 @@ def fgsm_attack(
     Otherwise, maximizes loss for the original predicted class (Untargeted).
     """
     x = image_tensor.clone().detach().requires_grad_(True)
-    x_norm = (x - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device)
+    x_norm = (x - IMAGENET_MEAN) / IMAGENET_STD
     logits = model(x_norm)
 
     if target_class is not None:
@@ -175,12 +212,12 @@ def pgd_attack(
     
     if target_class is None:
         with torch.no_grad():
-            orig_logits = model((x - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device))
+            orig_logits = model((x - IMAGENET_MEAN) / IMAGENET_STD)
             orig_pred_class = orig_logits.argmax(dim=1)
 
     for _ in range(num_iters):
         x_adv.requires_grad_(True)
-        x_norm = (x_adv - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device)
+        x_norm = (x_adv - IMAGENET_MEAN) / IMAGENET_STD
         logits = model(x_norm)
 
         if target_class is not None:
@@ -203,15 +240,13 @@ def pgd_attack(
     return x_adv
 
 
+@torch.no_grad()
 def get_predictions(tensor: torch.Tensor, model: torch.nn.Module, k: int = 3) -> list[dict]:
     """Get top-k class predictions and confidence scores."""
     model.eval()
     categories = models.ResNet50_Weights.IMAGENET1K_V1.meta["categories"]
-    x_norm = (tensor.clone().detach() - IMAGENET_MEAN.to(tensor.device)) / IMAGENET_STD.to(tensor.device)
-    
-    with torch.no_grad():
-        logits = model(x_norm)
-        
+    x_norm = (tensor - IMAGENET_MEAN) / IMAGENET_STD
+    logits = model(x_norm)
     probs = F.softmax(logits, dim=1)[0]
     top_prob, top_catid = torch.topk(probs, k)
     
@@ -342,7 +377,7 @@ def generate_gradcam_overlay(
     grad_cam = GradCAM(model, target_layer)
 
     # Normalise for the model
-    x_norm = (image_tensor.clone() - IMAGENET_MEAN.to(image_tensor.device)) / IMAGENET_STD.to(image_tensor.device)
+    x_norm = (image_tensor.clone() - IMAGENET_MEAN) / IMAGENET_STD
 
     cam = grad_cam.generate(x_norm)
     grad_cam.remove_hooks()
@@ -353,9 +388,9 @@ def generate_gradcam_overlay(
     # Build the base image
     base = _tensor_to_image(image_tensor)
     if original_size and base.size != original_size:
-        base = base.resize(original_size, Image.LANCZOS)
+        base = base.resize(original_size, Image.BILINEAR)
 
-    heatmap_img = Image.fromarray(heatmap_rgb).resize(base.size, Image.LANCZOS)
+    heatmap_img = Image.fromarray(heatmap_rgb).resize(base.size, Image.BILINEAR)
 
     # Blend
     overlay = Image.blend(base, heatmap_img, alpha)
@@ -445,7 +480,7 @@ def poison_image(
     result_img = _tensor_to_image(poisoned_tensor)
     # Resize back to original dimensions in case tensor ops changed them
     if result_img.size != original_size:
-        result_img = result_img.resize(original_size, Image.LANCZOS)
+        result_img = result_img.resize(original_size, Image.BILINEAR)
     result_img.save(output_path, format="PNG")
 
     if verbose:

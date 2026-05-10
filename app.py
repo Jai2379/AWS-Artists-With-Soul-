@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import base64
 import io
+import time
 import uuid
 import zipfile
 import traceback
@@ -47,6 +48,8 @@ from poison_engine import (
     get_predictions,
     embed_watermark,
     generate_gradcam_overlay,
+    resize_tensor_for_attack,
+    upscale_perturbation,
 )
 
 # ---------------------------------------------------------------------------
@@ -84,6 +87,9 @@ celery_app.conf.update(
     accept_content=["json"],
     result_expires=3600,          # results kept for 1 hour
     task_track_started=True,
+    broker_connection_timeout=1.0,  # Fails fast if Redis is down
+    broker_connection_retry=False,
+    broker_connection_max_retries=0,
 )
 
 # ---------------------------------------------------------------------------
@@ -109,7 +115,7 @@ ALLOWED_BATCH_EXTENSIONS = {".zip"}
 
 
 def _safe_open_image(stream_or_bytes) -> Image.Image:
-    """Open an image safely — strips EXIF at PIL level via a clean re-encode.
+    """Open an image safely — strips EXIF without costly re-encoding.
 
     PIL will raise DecompressionBombWarning (and then Error) automatically
     because we've set MAX_IMAGE_PIXELS above. We just need to convert the
@@ -123,19 +129,40 @@ def _safe_open_image(stream_or_bytes) -> Image.Image:
     img = Image.open(raw)
     img.load()  # Force full decode now — triggers decompression bomb check
 
-    # Re-encode into a fresh buffer to strip ALL metadata (EXIF, XMP, IPTC…)
-    clean_buf = io.BytesIO()
-    img.convert("RGB").save(clean_buf, format="PNG")
-    clean_buf.seek(0)
-    return Image.open(clean_buf).convert("RGB")
+    # Strip ALL metadata by copying raw pixel bytes into a fresh image
+    # — much faster than re-encoding as PNG
+    rgb = img.convert("RGB")
+    clean = Image.frombytes("RGB", rgb.size, rgb.tobytes())
+    return clean
 
 
-def _img_to_b64(img: Image.Image) -> str:
-    """Encode a clean (EXIF-free) PIL Image as a base64 PNG data-URL."""
+# Max dimension for images sent back in the JSON response.
+# Full-res images blow up base64 encoding + JSON serialization time.
+MAX_RESPONSE_SIZE = 1200
+
+
+def _downscale_for_response(img: Image.Image) -> Image.Image:
+    """Shrink an image to MAX_RESPONSE_SIZE if it's larger, for fast b64 encoding."""
+    w, h = img.size
+    if max(w, h) <= MAX_RESPONSE_SIZE:
+        return img
+    scale = MAX_RESPONSE_SIZE / max(w, h)
+    new_w, new_h = int(w * scale), int(h * scale)
+    return img.resize((new_w, new_h), Image.BILINEAR)
+
+
+def _img_to_b64(img: Image.Image, for_download: bool = False) -> str:
+    """Encode a clean (EXIF-free) PIL Image as a base64 JPEG data-URL.
+
+    Preview images are downscaled and use lower quality for speed.
+    Download images keep full resolution and higher quality.
+    """
+    if not for_download:
+        img = _downscale_for_response(img)
     buf = io.BytesIO()
-    # Save as PNG with no extra metadata chunks
-    img.save(buf, format="PNG", optimize=False, compress_level=1)
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
+    quality = 92 if for_download else 80
+    img.save(buf, format="JPEG", quality=quality)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
 def _img_to_bytes(img: Image.Image) -> bytes:
@@ -155,56 +182,116 @@ def _process_single_image(
     """Core pipeline: PIL Image → poisoned image + Grad-CAM + metrics.
 
     Entirely in-memory — no files are written to disk.
+    Images larger than MAX_ATTACK_SIZE are downscaled for the attack pass,
+    then the perturbation is upscaled and applied at full resolution.
 
     Returns a dict with keys: original, poisoned, gradcam_original,
     gradcam_poisoned (all PIL Images), psnr (float), width, height,
-    orig_preds, poisoned_preds, watermarked.
+    orig_preds, poisoned_preds, watermarked, timings.
     """
+    timings = {}
+    t_total = time.perf_counter()
+
     model = get_model()
     original_size = img.size  # (W, H)
 
     # PIL → tensor (in-memory, no disk I/O)
+    t0 = time.perf_counter()
     image_tensor, _ = _pil_to_tensor(img)
-    
-    # Get original predictions
-    orig_preds = get_predictions(image_tensor, model)
+    timings["tensor_conversion_ms"] = round((time.perf_counter() - t0) * 1000, 1)
 
-    # Adversarial attack
+    # Resize for faster attack computation
+    t0 = time.perf_counter()
+    small_tensor, was_resized = resize_tensor_for_attack(image_tensor)
+    timings["resize_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    if was_resized:
+        timings["attack_resolution"] = f"{small_tensor.shape[3]}x{small_tensor.shape[2]}"
+        timings["original_resolution"] = f"{image_tensor.shape[3]}x{image_tensor.shape[2]}"
+
+    # Get original predictions (at processing resolution)
+    t0 = time.perf_counter()
+    orig_preds = get_predictions(small_tensor, model)
+    timings["orig_predictions_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+
+    # Adversarial attack (at processing resolution)
+    t0 = time.perf_counter()
     if attack_mode == "pgd":
-        poisoned_tensor = pgd_attack(image_tensor, model, epsilon, target_class=target_class)
+        poisoned_small = pgd_attack(small_tensor, model, epsilon, target_class=target_class)
     else:
-        poisoned_tensor = fgsm_attack(image_tensor, model, epsilon, target_class=target_class)
+        poisoned_small = fgsm_attack(small_tensor, model, epsilon, target_class=target_class)
+    timings["attack_ms"] = round((time.perf_counter() - t0) * 1000, 1)
 
-    # Quality metric
+    # Upscale perturbation to full resolution if needed
+    t0 = time.perf_counter()
+    if was_resized:
+        poisoned_tensor = upscale_perturbation(image_tensor, small_tensor, poisoned_small)
+    else:
+        poisoned_tensor = poisoned_small
+    timings["upscale_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+
+    # Quality metric (at full resolution)
+    t0 = time.perf_counter()
     psnr = compute_psnr(image_tensor, poisoned_tensor)
-    
-    # Get poisoned predictions
-    poisoned_preds = get_predictions(poisoned_tensor, model)
+    timings["psnr_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+
+    # Get poisoned predictions (at processing resolution)
+    t0 = time.perf_counter()
+    poisoned_small_pred, _ = resize_tensor_for_attack(poisoned_tensor)
+    poisoned_preds = get_predictions(poisoned_small_pred, model)
+    timings["poisoned_predictions_ms"] = round((time.perf_counter() - t0) * 1000, 1)
 
     # Reconstruct poisoned PIL image
+    t0 = time.perf_counter()
     poisoned_img = _tensor_to_image(poisoned_tensor)
     if poisoned_img.size != original_size:
-        poisoned_img = poisoned_img.resize(original_size, Image.LANCZOS)
-        
+        poisoned_img = poisoned_img.resize(original_size, Image.BILINEAR)
+    timings["tensor_to_image_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+
     # Embed invisible watermark
     if watermark:
+        t0 = time.perf_counter()
         poisoned_img = embed_watermark(poisoned_img, watermark)
+        timings["watermark_ms"] = round((time.perf_counter() - t0) * 1000, 1)
 
-    # Grad-CAM overlays
-    gradcam_orig = generate_gradcam_overlay(image_tensor, model, original_size)
-    gradcam_poison = generate_gradcam_overlay(poisoned_tensor, model, original_size)
+    # Grad-CAM overlays (MUST use the small 512px tensors, not full-res, to save massive CPU time)
+    t0 = time.perf_counter()
+    gradcam_orig = generate_gradcam_overlay(small_tensor, model, original_size)
+    gradcam_poison = generate_gradcam_overlay(poisoned_small_pred, model, original_size)
+    timings["gradcam_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+
+    timings["compute_ms"] = round((time.perf_counter() - t_total) * 1000, 1)
+
+    print(f"[app] Compute done in {timings['compute_ms']}ms | "
+          f"attack={timings['attack_ms']}ms gradcam={timings['gradcam_ms']}ms "
+          f"resized={was_resized}")
+
+    # --- Encode images to base64 (this was the hidden bottleneck) ---
+    t_enc = time.perf_counter()
+    original_b64 = _img_to_b64(img)
+    poisoned_b64 = _img_to_b64(poisoned_img)
+    poisoned_download_b64 = _img_to_b64(poisoned_img, for_download=True)
+    gradcam_orig_b64 = _img_to_b64(gradcam_orig)
+    gradcam_poison_b64 = _img_to_b64(gradcam_poison)
+    timings["encoding_ms"] = round((time.perf_counter() - t_enc) * 1000, 1)
+
+    timings["total_ms"] = round((time.perf_counter() - t_total) * 1000, 1)
+
+    print(f"[app] Encoding done in {timings['encoding_ms']}ms | "
+          f"TOTAL wall-clock = {timings['total_ms']}ms")
 
     return {
-        "original": img,
-        "poisoned": poisoned_img,
-        "gradcam_original": gradcam_orig,
-        "gradcam_poisoned": gradcam_poison,
+        "original": original_b64,
+        "poisoned": poisoned_b64,
+        "poisoned_download": poisoned_download_b64,
+        "gradcam_original": gradcam_orig_b64,
+        "gradcam_poisoned": gradcam_poison_b64,
         "psnr": round(psnr, 2),
         "width": original_size[0],
         "height": original_size[1],
         "orig_preds": orig_preds,
         "poisoned_preds": poisoned_preds,
-        "watermarked": bool(watermark)
+        "watermarked": bool(watermark),
+        "timings": timings
     }
 
 
@@ -232,18 +319,21 @@ def poison_task(self, image_b64: str, epsilon: float, attack_mode: str = "fgsm",
 
         self.update_state(state="PROGRESS", meta={"progress": 90})
 
+        # _process_single_image now returns pre-encoded b64 strings
         return {
-            "original":        _img_to_b64(result["original"]),
-            "poisoned":        _img_to_b64(result["poisoned"]),
-            "gradcam_original": _img_to_b64(result["gradcam_original"]),
-            "gradcam_poisoned": _img_to_b64(result["gradcam_poisoned"]),
+            "original":        result["original"],
+            "poisoned":        result["poisoned"],
+            "poisoned_download": result["poisoned_download"],
+            "gradcam_original": result["gradcam_original"],
+            "gradcam_poisoned": result["gradcam_poisoned"],
             "psnr":   result["psnr"],
             "epsilon": epsilon,
             "width":  result["width"],
             "height": result["height"],
             "orig_preds": result["orig_preds"],
             "poisoned_preds": result["poisoned_preds"],
-            "watermarked": result["watermarked"]
+            "watermarked": result["watermarked"],
+            "timings": result["timings"]
         }
 
     except Exception as exc:
@@ -289,30 +379,31 @@ def poison():
 
         img_bytes = file.read()
 
-        # Try async path first
-        try:
-            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-            task = poison_task.delay(img_b64, epsilon, attack_mode, target_class, watermark)
-            return jsonify({"task_id": task.id, "mode": "async"}), 202
+        # Run synchronously immediately (bypassing any Celery/Redis timeouts)
+        t_start = time.perf_counter()
+        img = _safe_open_image(img_bytes)
+        result = _process_single_image(img, epsilon, attack_mode, target_class, watermark)
 
-        except Exception:
-            # Celery/Redis unavailable — fall back to synchronous processing
-            img = _safe_open_image(img_bytes)
-            result = _process_single_image(img, epsilon, attack_mode, target_class, watermark)
-            return jsonify({
-                "original":         _img_to_b64(result["original"]),
-                "poisoned":         _img_to_b64(result["poisoned"]),
-                "gradcam_original": _img_to_b64(result["gradcam_original"]),
-                "gradcam_poisoned": _img_to_b64(result["gradcam_poisoned"]),
-                "psnr":    result["psnr"],
-                "epsilon": epsilon,
-                "width":   result["width"],
-                "height":  result["height"],
-                "orig_preds": result["orig_preds"],
-                "poisoned_preds": result["poisoned_preds"],
-                "watermarked": result["watermarked"],
-                "mode":    "sync",
-            })
+        t_json = time.perf_counter()
+        resp = jsonify({
+            "original":         result["original"],
+            "poisoned":         result["poisoned"],
+            "poisoned_download": result["poisoned_download"],
+            "gradcam_original": result["gradcam_original"],
+            "gradcam_poisoned": result["gradcam_poisoned"],
+            "psnr":    result["psnr"],
+            "epsilon": epsilon,
+            "width":   result["width"],
+            "height":  result["height"],
+            "orig_preds": result["orig_preds"],
+            "poisoned_preds": result["poisoned_preds"],
+            "watermarked": result["watermarked"],
+            "timings": result["timings"],
+            "mode":    "sync",
+        })
+        print(f"[app] jsonify took {(time.perf_counter() - t_json)*1000:.1f}ms")
+        print(f"[app] Total endpoint time: {(time.perf_counter() - t_start):.2f}s")
+        return resp
 
     except Exception as e:
         traceback.print_exc()
@@ -390,7 +481,9 @@ def poison_batch():
                     stem = Path(name).stem
                     parent = str(Path(name).parent)
                     out_name = f"{parent}/{stem}_poisoned.png" if parent != "." else f"{stem}_poisoned.png"
-                    zout.writestr(out_name, _img_to_bytes(result["poisoned"]))
+                    # result["poisoned_download"] is a data URL — extract raw bytes
+                    b64_data = result["poisoned_download"].split(",", 1)[1]
+                    zout.writestr(out_name, base64.b64decode(b64_data))
 
                     results_summary.append({
                         "file": name,

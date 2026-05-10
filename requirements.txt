@@ -1,0 +1,8 @@
+celery
+redis
+Flask
+Flask-Limiter
+Pillow
+torch
+torchvision
+numpy

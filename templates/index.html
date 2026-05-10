@@ -908,11 +908,14 @@
             });
         }
 
+        let downloadUrl = null;
+
         const renderResult = data => {
             document.getElementById('originalImg').src = data.original;
             document.getElementById('poisonedImg').src = data.poisoned;
             document.getElementById('gradcamOrigImg').src = data.gradcam_original;
             document.getElementById('gradcamPoisonImg').src = data.gradcam_poisoned;
+            downloadUrl = data.poisoned_download || data.poisoned;
             
             const renderPreds = (preds, container, isPoisoned) => {
                 container.innerHTML = preds.map(p => `
@@ -1044,7 +1047,7 @@
 
         // --- Download Action ---
         document.getElementById('downloadBtn').addEventListener('click', () => {
-            const src = document.getElementById('poisonedImg').src;
+            const src = downloadUrl || document.getElementById('poisonedImg').src;
             if (!src) return;
             const a = document.createElement('a');
             a.href = src;
