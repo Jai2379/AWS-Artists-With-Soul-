@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poison — AI-Proof Your Work</title>
+    <meta name="description" content="Instantly apply imperceptible adversarial noise to your images. Stop AI models from scraping and training on your work.">
+    
+    <!-- Using Geist if available, fallback to Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #000000;
+            --fg: #ededed;
+            --fg-muted: #a1a1aa;
+            --border: #27272a;
+            --border-hover: #3f3f46;
+            --acc-bg: #ffffff;
+            --acc-fg: #000000;
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --info: #3b82f6;
+            --info-bg: rgba(59, 130, 246, 0.1);
+            --radius: 8px;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Ambient Glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 800px; height: 400px;
+            background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 768px;
+            padding: 4rem 1.5rem;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            margin-bottom: 0.5rem;
+            color: var(--fg);
+        }
+        
+        p.subtitle {
+            font-size: 1rem;
+            color: var(--fg-muted);
+            margin-bottom: 3rem;
+            max-width: 600px;
+        }
+
+        /* Cards & Containers */
+        .panel {
+            background: #0a0a0a;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: border-color var(--transition);
+        }
+        
+        .panel:hover {
+            border-color: var(--border-hover);
+        }
+
+        .panel-header {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--fg);
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition);
+            background: rgba(255,255,255,0.01);
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--fg-muted);
+            background: rgba(255,255,255,0.03);
+        }
+
+        .upload-zone.has-file {
+            border-style: solid;
+            border-color: var(--border-hover);
+            padding: 1.5rem;
+            background: #0a0a0a;
+        }
+
+        .upload-text {
+            font-size: 0.875rem;
+            color: var(--fg-muted);
+        }
+
+        .upload-text strong {
+            color: var(--fg);
+            font-weight: 500;
+        }
+
+        .file-info {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .upload-zone.has-file .file-info { display: flex; }
+        .upload-zone.has-file .upload-placeholder { display: none; }
+
+        .file-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: var(--fg);
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-size {
+            color: var(--fg-muted);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+        }
+
+        .btn-icon {
+            background: transparent;
+            border: none;
+            color: var(--fg-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: color var(--transition), background var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-icon:hover {
+            color: var(--danger);
+            background: var(--danger-bg);
+        }
+
+        /* Controls */
+        .controls {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        .slider-label { color: var(--fg-muted); }
+        .slider-value { 
+            font-family: var(--font-mono); 
+            color: var(--fg);
+            background: #111;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            margin: 0.5rem 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--acc-bg);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform var(--transition);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .presets {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            background: #111;
+            border: 1px solid var(--border);
+            color: var(--fg-muted);
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: var(--font-sans);
+        }
+
+        .preset-btn:hover {
+            border-color: var(--fg-muted);
+            color: var(--fg);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: var(--acc-bg);
+            color: var(--acc-fg);
+            border: 1px solid transparent;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            font-family: var(--font-sans);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #e5e5e5;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #111;
+            color: var(--fg);
+            border: 1px solid var(--border);
+            padding: 0.625rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-sans);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #1a1a1a;
+            border-color: var(--border-hover);
+        }
+
+        /* Spinner */
+        .spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0,0,0,0.1);
+            border-top-color: #000;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        .btn-secondary .spinner {
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: #fff;
+        }
+
+        .loading .spinner { display: block; }
+        .loading .btn-text { display: none; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Progress Bar */
+        .progress-wrap {
+            margin-top: 1.5rem;
+            display: none;
+        }
+        
+        .progress-wrap.visible { display: block; }
+        
+        .progress-label {
+            font-size: 0.75rem;
+            color: var(--fg-muted);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .progress-track {
+            height: 4px;
+            background: #111;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--fg);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        /* Badges */
+        .badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .badge-invisible { background: var(--success-bg); color: var(--success); }
+        .badge-good { background: var(--success-bg); color: var(--success); }
+        .badge-moderate { background: var(--warning-bg); color: var(--warning); }
+        .badge-aggressive { background: var(--danger-bg); color: var(--danger); }
+        
+        .security-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+        
+        .sec-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            color: var(--fg-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Results Area */
+        .results {
+            display: none;
+            margin-top: 2rem;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .results.visible { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric {
+            background: #0a0a0a;
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: var(--radius);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--fg);
+        }
+
+        /* Image Grids */
+        .image-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .image-box {
+            position: relative;
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            aspect-ratio: 1/1; /* Or auto depending on image */
+        }
+
+        .image-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .image-label {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(4px);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .gradcam-note {
+            font-size: 0.875rem;
+            color: var(--fg-muted);
+            background: #0a0a0a;
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+        }
+        
+        .gradcam-note svg {
+            flex-shrink: 0;
+            color: var(--fg);
+        }
+
+        .actions-row {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        /* Error Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #111;
+            border: 1px solid var(--danger);
+            color: var(--fg);
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        @media (max-width: 640px) {
+            .image-grid { grid-template-columns: 1fr; }
+            .metrics { grid-template-columns: 1fr; }
+        }
+        
+        /* Utility */
+        .mono { font-family: var(--font-mono); }
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-danger { color: var(--danger); }
+        
+        .form-input {
+            width: 100%; background: #111; border: 1px solid var(--border); color: var(--fg);
+            padding: 0.5rem; border-radius: 4px; font-size: 0.875rem; font-family: var(--font-sans); outline: none;
+        }
+        .form-input:focus { border-color: var(--fg-muted); }
+        .pred-row { display: flex; justify-content: space-between; font-size: 0.875rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+        .pred-row:last-child { border-bottom: none; }
+        .pred-bar { height: 4px; border-radius: 2px; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Poison.</h1>
+        <p class="subtitle">Instantly apply imperceptible adversarial noise to your images. Render them useless to unauthorized AI training models.</p>
+
+        <!-- Single Image Panel -->
+        <div class="panel">
+            <div class="panel-header" style="margin-bottom:1rem;">
+                <span>Single Image Processing</span>
+                <button id="cameraBtn" class="btn-icon" style="font-size:0.75rem; gap:4px; border:1px solid var(--border); padding:4px 8px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Camera
+                </button>
+            </div>
+            
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-placeholder">
+                    <div class="upload-text"><strong>Click to upload</strong> or drag and drop</div>
+                    <div class="upload-text" style="margin-top: 0.25rem; font-size: 0.75rem;">PNG, JPG, WEBP (Max 50MB)</div>
+                </div>
+                
+                <div class="file-info">
+                    <div class="file-meta">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <span class="file-name" id="fileName">image.png</span>
+                        <span class="file-size" id="fileSize">2.4 MB</span>
+                    </div>
+                    <button class="btn-icon" id="fileRemove" aria-label="Remove file">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" style="display:none">
+            
+            <div style="display:flex; gap:1rem; margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem;">
+                <div style="flex:1;">
+                    <label class="slider-label" style="display:block; margin-bottom:4px;">Attack Algorithm</label>
+                    <select id="attackMode" class="form-input">
+                        <option value="fgsm">FGSM (Fast, Standard)</option>
+                        <option value="pgd">PGD (Deep, Robust)</option>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label class="slider-label" style="display:block; margin-bottom:4px;">Target Class (Cloak)</label>
+                    <select id="targetClass" class="form-input">
+                        <option value="">Untargeted (Default)</option>
+                        <option value="859">Toaster (859)</option>
+                        <option value="954">Banana (954)</option>
+                        <option value="207">Golden Retriever (207)</option>
+                        <option value="924">Guacamole (924)</option>
+                        <option value="449">Sleeping Bag (449)</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top:1rem;">
+                <label class="slider-label" style="display:block; margin-bottom:4px;">Invisible Watermark (LSB)</label>
+                <input type="text" id="watermarkText" class="form-input" placeholder="e.g. Property of Hackathon Team" maxlength="64">
+            </div>
+
+            <div class="controls" style="border-top:none; padding-top:1.5rem;">
+                <div class="slider-header">
+                    <span class="slider-label">Perturbation Strength (&epsilon;)</span>
+                    <span class="slider-value" id="epsilonValue">0.010</span>
+                </div>
+                
+                <input type="range" id="epsilonSlider" min="0.001" max="0.060" step="0.001" value="0.010">
+                
+                <div style="display:flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                    <div class="presets">
+                        <button class="preset-btn" data-val="0.005">Subtle</button>
+                        <button class="preset-btn" data-val="0.010">Recommended</button>
+                        <button class="preset-btn" data-val="0.020">Moderate</button>
+                        <button class="preset-btn" data-val="0.040">Aggressive</button>
+                    </div>
+                    <div class="badge badge-good" id="qualityBadge">~40 dB PSNR</div>
+                </div>
+
+                <button class="btn-primary" id="poisonBtn" disabled>
+                    <span class="btn-text">Generate Poison</span>
+                    <div class="spinner"></div>
+                </button>
+                
+                <div class="progress-wrap" id="progressWrap">
+                    <div class="progress-label">
+                        <span id="progressLabel">Initializing...</span>
+                        <span class="mono" id="progressPct">0%</span>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+                </div>
+                
+                <div class="security-badges" id="securityBadges" style="display:none">
+                    <span class="sec-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> EXIF Stripped</span>
+                    <span class="sec-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> In-Memory Processing</span>
+                    <span class="sec-badge" id="modeBadge">Sync Mode</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Batch Panel -->
+        <div class="panel">
+            <div class="panel-header">Batch Processing</div>
+            <div class="upload-zone" id="batchDrop" style="padding: 1.5rem;">
+                <div id="batchPlaceholder">
+                    <div class="upload-text"><strong>Upload .zip archive</strong> (Max 100 images)</div>
+                </div>
+                <div class="file-info" id="batchFileInfoWrap" style="display:none; justify-content: center;">
+                    <div class="file-meta">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span class="file-name" id="batchFileInfo">archive.zip</span>
+                    </div>
+                </div>
+            </div>
+            <input type="file" id="batchFileInput" accept=".zip" style="display:none">
+            
+            <button class="btn-secondary" id="batchBtn" disabled style="width:100%; justify-content:center; margin-top: 1rem;">
+                <span class="btn-text">Process Batch Archive</span>
+                <div class="spinner"></div>
+            </button>
+        </div>
+
+        <!-- Results Area -->
+        <div class="results" id="results">
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-label">PSNR</div>
+                    <div class="metric-value text-success" id="metricPsnr">-- dB</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Epsilon</div>
+                    <div class="metric-value" id="metricEps">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Dimensions</div>
+                    <div class="metric-value" id="metricRes">--</div>
+                </div>
+            </div>
+
+            <div class="panel-header" style="margin-top: 2rem;">Live AI Predictions</div>
+            <div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
+                <div class="panel" style="flex:1; margin-bottom:0; padding:1rem;">
+                    <div class="metric-label" style="margin-bottom:0.5rem;">Before Protection</div>
+                    <div id="origPredsList"></div>
+                </div>
+                <div class="panel" style="flex:1; margin-bottom:0; padding:1rem;">
+                    <div class="metric-label" style="margin-bottom:0.5rem; color:var(--danger)">After Protection</div>
+                    <div id="poisonedPredsList"></div>
+                </div>
+            </div>
+
+            <div class="panel-header" style="margin-top: 2rem;">Visual Comparison</div>
+            <div class="image-grid">
+                <div class="image-box">
+                    <span class="image-label">Original</span>
+                    <img id="originalImg" alt="Original">
+                </div>
+                <div class="image-box">
+                    <span class="image-label">Protected</span>
+                    <img id="poisonedImg" alt="Poisoned">
+                </div>
+            </div>
+
+            <div class="panel-header" style="margin-top: 2rem;">Attention Shift (Grad-CAM)</div>
+            <div class="gradcam-note">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span>Heatmaps reveal where the AI focuses. Notice how the protected image forces the AI to look at irrelevant background noise, destroying its ability to classify the subject.</span>
+            </div>
+            
+            <div class="image-grid">
+                <div class="image-box">
+                    <span class="image-label" style="color:var(--warning)">Focus: Original</span>
+                    <img id="gradcamOrigImg" alt="Original Heatmap">
+                </div>
+                <div class="image-box">
+                    <span class="image-label" style="color:var(--danger)">Focus: Protected</span>
+                    <img id="gradcamPoisonImg" alt="Poisoned Heatmap">
+                </div>
+            </div>
+
+            <div class="actions-row">
+                <button class="btn-primary" id="downloadBtn" style="width: auto;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Download Protected Image
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="errorToast">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <span id="errorMsg">Error</span>
+    </div>
+
+    <script>
+        // DOM Elements
+        const DOM = {
+            uploadZone: document.getElementById('uploadZone'),
+            fileInput: document.getElementById('fileInput'),
+            fileName: document.getElementById('fileName'),
+            fileSize: document.getElementById('fileSize'),
+            fileRemove: document.getElementById('fileRemove'),
+            slider: document.getElementById('epsilonSlider'),
+            epsValue: document.getElementById('epsilonValue'),
+            badge: document.getElementById('qualityBadge'),
+            poisonBtn: document.getElementById('poisonBtn'),
+            results: document.getElementById('results'),
+            toast: document.getElementById('errorToast'),
+            toastMsg: document.getElementById('errorMsg'),
+            progWrap: document.getElementById('progressWrap'),
+            progFill: document.getElementById('progressFill'),
+            progLbl: document.getElementById('progressLabel'),
+            progPct: document.getElementById('progressPct'),
+            secBadges: document.getElementById('securityBadges'),
+            modeBadge: document.getElementById('modeBadge'),
+            cameraBtn: document.getElementById('cameraBtn'),
+            attackMode: document.getElementById('attackMode'),
+            targetClass: document.getElementById('targetClass'),
+            watermarkText: document.getElementById('watermarkText'),
+            origPredsList: document.getElementById('origPredsList'),
+            poisonedPredsList: document.getElementById('poisonedPredsList'),
+            
+            // Batch
+            batchDrop: document.getElementById('batchDrop'),
+            batchInput: document.getElementById('batchFileInput'),
+            batchBtn: document.getElementById('batchBtn'),
+            batchInfoWrap: document.getElementById('batchFileInfoWrap'),
+            batchInfo: document.getElementById('batchFileInfo'),
+            batchPlace: document.getElementById('batchPlaceholder')
+        };
+
+        let selectedFile = null;
+
+        // --- Core UI Helpers ---
+        const formatSize = bytes => (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        
+        const showError = msg => {
+            DOM.toastMsg.textContent = msg;
+            DOM.toast.classList.add('show');
+            setTimeout(() => DOM.toast.classList.remove('show'), 4000);
+        };
+
+        const setProgress = (pct, label) => {
+            DOM.progWrap.classList.add('visible');
+            DOM.progFill.style.width = `${pct}%`;
+            DOM.progLbl.textContent = label;
+            DOM.progPct.textContent = `${pct}%`;
+        };
+        
+        const hideProgress = () => DOM.progWrap.classList.remove('visible');
+
+        // --- Single Upload Logic ---
+        const handleFile = file => {
+            if (!file.type.startsWith('image/')) return showError('Invalid file type. Image required.');
+            selectedFile = file;
+            DOM.fileName.textContent = file.name;
+            DOM.fileSize.textContent = formatSize(file.size);
+            DOM.uploadZone.classList.add('has-file');
+            DOM.poisonBtn.disabled = false;
+        };
+
+        DOM.uploadZone.addEventListener('click', e => { if (e.target !== DOM.fileRemove) DOM.fileInput.click(); });
+        DOM.uploadZone.addEventListener('dragover', e => { e.preventDefault(); DOM.uploadZone.classList.add('dragover'); });
+        DOM.uploadZone.addEventListener('dragleave', () => DOM.uploadZone.classList.remove('dragover'));
+        DOM.uploadZone.addEventListener('drop', e => {
+            e.preventDefault(); DOM.uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+        
+        DOM.fileInput.addEventListener('change', () => {
+            if (DOM.fileInput.files.length) handleFile(DOM.fileInput.files[0]);
+        });
+        
+        DOM.fileRemove.addEventListener('click', e => {
+            e.stopPropagation();
+            selectedFile = null;
+            DOM.uploadZone.classList.remove('has-file');
+            DOM.fileInput.value = '';
+            DOM.poisonBtn.disabled = true;
+        });
+
+        DOM.cameraBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                await video.play();
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                
+                stream.getTracks().forEach(t => t.stop());
+                
+                canvas.toBlob(blob => {
+                    const file = new File([blob], "camera_capture.png", { type: "image/png" });
+                    handleFile(file);
+                }, 'image/png');
+            } catch (err) {
+                showError("Camera access denied.");
+            }
+        });
+
+        // --- Slider Logic ---
+        const updateSlider = () => {
+            const v = parseFloat(DOM.slider.value);
+            DOM.epsValue.textContent = v.toFixed(3);
+            
+            let cls, text;
+            if (v <= 0.007)      { cls = 'badge-invisible'; text = '~46 dB PSNR'; }
+            else if (v <= 0.015) { cls = 'badge-good'; text = '~40 dB PSNR'; }
+            else if (v <= 0.030) { cls = 'badge-moderate'; text = '~34 dB PSNR'; }
+            else                 { cls = 'badge-aggressive'; text = '~28 dB PSNR'; }
+            
+            DOM.badge.className = `badge ${cls}`;
+            DOM.badge.textContent = text;
+        };
+        
+        DOM.slider.addEventListener('input', updateSlider);
+        updateSlider();
+        
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                DOM.slider.value = btn.dataset.val;
+                updateSlider();
+            });
+        });
+
+        // --- Processing Logic ---
+        async function pollTask(taskId) {
+            setProgress(10, 'Queued on worker...');
+            return new Promise((resolve, reject) => {
+                const interval = setInterval(async () => {
+                    try {
+                        const r = await fetch(`/status/${taskId}`);
+                        const d = await r.json();
+                        
+                        if (d.state === 'PROGRESS' || d.state === 'STARTED') {
+                            setProgress(d.progress || 30, 'Computing gradients...');
+                        } else if (d.state === 'SUCCESS') {
+                            clearInterval(interval);
+                            setProgress(100, 'Complete');
+                            setTimeout(hideProgress, 500);
+                            resolve(d.result);
+                        } else if (d.state === 'FAILURE') {
+                            clearInterval(interval);
+                            hideProgress();
+                            reject(new Error(d.error || 'Worker failed'));
+                        }
+                    } catch (e) {
+                        clearInterval(interval);
+                        hideProgress();
+                        reject(e);
+                    }
+                }, 1000);
+            });
+        }
+
+        const renderResult = data => {
+            document.getElementById('originalImg').src = data.original;
+            document.getElementById('poisonedImg').src = data.poisoned;
+            document.getElementById('gradcamOrigImg').src = data.gradcam_original;
+            document.getElementById('gradcamPoisonImg').src = data.gradcam_poisoned;
+            
+            const renderPreds = (preds, container, isPoisoned) => {
+                container.innerHTML = preds.map(p => `
+                    <div class="pred-row">
+                        <span>${p.label}</span>
+                        <span class="mono">${p.confidence}%</span>
+                    </div>
+                    <div class="pred-bar" style="width: ${p.confidence}%; background: ${isPoisoned ? 'var(--danger)' : 'var(--success)'};"></div>
+                `).join('');
+            };
+            
+            renderPreds(data.orig_preds, DOM.origPredsList, false);
+            renderPreds(data.poisoned_preds, DOM.poisonedPredsList, true);
+            
+            const psnrEl = document.getElementById('metricPsnr');
+            psnrEl.textContent = `${data.psnr} dB`;
+            psnrEl.className = `metric-value ${data.psnr >= 38 ? 'text-success' : data.psnr >= 28 ? 'text-warning' : 'text-danger'}`;
+            
+            document.getElementById('metricEps').textContent = parseFloat(data.epsilon).toFixed(3);
+            document.getElementById('metricRes').textContent = `${data.width} × ${data.height}`;
+            
+            DOM.results.classList.add('visible');
+            DOM.secBadges.style.display = 'flex';
+        };
+
+        DOM.poisonBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            DOM.poisonBtn.classList.add('loading');
+            DOM.poisonBtn.disabled = true;
+            DOM.results.classList.remove('visible');
+            DOM.secBadges.style.display = 'none';
+            setProgress(5, 'Uploading tensor...');
+
+            const fd = new FormData();
+            fd.append('image', selectedFile);
+            fd.append('epsilon', DOM.slider.value);
+            fd.append('attack_mode', DOM.attackMode.value);
+            fd.append('target_class', DOM.targetClass.value);
+            fd.append('watermark', DOM.watermarkText.value);
+
+            try {
+                const res = await fetch('/poison', { method: 'POST', body: fd });
+                const data = await res.json();
+                
+                if (!res.ok) throw new Error(data.error || 'Engine failure');
+
+                if (data.task_id) {
+                    DOM.modeBadge.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> Async Queue';
+                    const result = await pollTask(data.task_id);
+                    renderResult(result);
+                } else {
+                    DOM.modeBadge.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Sync Mode';
+                    hideProgress();
+                    renderResult(data);
+                }
+            } catch (err) {
+                hideProgress();
+                showError(err.message);
+            } finally {
+                DOM.poisonBtn.classList.remove('loading');
+                DOM.poisonBtn.disabled = false;
+            }
+        });
+
+        // --- Batch ZIP Logic ---
+        let batchFile = null;
+
+        const setBatchFile = file => {
+            if (!file.name.endsWith('.zip')) return showError('Archive must be a .zip');
+            batchFile = file;
+            DOM.batchPlace.style.display = 'none';
+            DOM.batchInfoWrap.style.display = 'flex';
+            DOM.batchInfo.textContent = `${file.name} (${formatSize(file.size)})`;
+            DOM.batchDrop.classList.add('has-file');
+            DOM.batchBtn.disabled = false;
+        };
+
+        DOM.batchDrop.addEventListener('click', () => DOM.batchInput.click());
+        DOM.batchDrop.addEventListener('dragover', e => { e.preventDefault(); DOM.batchDrop.style.borderColor = 'var(--fg-muted)'; });
+        DOM.batchDrop.addEventListener('dragleave', () => DOM.batchDrop.style.borderColor = '');
+        DOM.batchDrop.addEventListener('drop', e => {
+            e.preventDefault(); DOM.batchDrop.style.borderColor = '';
+            if (e.dataTransfer.files.length) setBatchFile(e.dataTransfer.files[0]);
+        });
+        DOM.batchInput.addEventListener('change', () => {
+            if (DOM.batchInput.files.length) setBatchFile(DOM.batchInput.files[0]);
+        });
+
+        DOM.batchBtn.addEventListener('click', async () => {
+            if (!batchFile) return;
+            
+            DOM.batchBtn.classList.add('loading');
+            DOM.batchBtn.disabled = true;
+            setProgress(5, 'Uploading archive...');
+            
+            const fd = new FormData();
+            fd.append('archive', batchFile);
+            fd.append('epsilon', DOM.slider.value);
+            
+            try {
+                setProgress(30, 'Engine running...');
+                const res = await fetch('/poison/batch', { method: 'POST', body: fd });
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Batch processing failed');
+                }
+                
+                setProgress(90, 'Packaging payload...');
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'poison_batch_output.zip';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                setProgress(100, 'Downloaded');
+                setTimeout(hideProgress, 1000);
+            } catch (err) {
+                hideProgress();
+                showError(err.message);
+            } finally {
+                DOM.batchBtn.classList.remove('loading');
+                DOM.batchBtn.disabled = false;
+            }
+        });
+
+        // --- Download Action ---
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const src = document.getElementById('poisonedImg').src;
+            if (!src) return;
+            const a = document.createElement('a');
+            a.href = src;
+            a.download = 'poisoned_image.png';
+            a.click();
+        });
+    </script>
+</body>
+</html>
