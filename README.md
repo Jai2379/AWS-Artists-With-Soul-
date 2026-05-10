@@ -1,111 +1,224 @@
-# 🎨 AWS: Artists With Soul
+# Artists With Souls (AWS)
 
-![Artists With Soul Hero](aws_hero_image_1778435298904.png)
+Protecting creative work in the age of generative AI.
 
-**Protecting Creativity in the Age of Generative AI.**
+Artists With Souls (AWS) is a local-first adversarial image protection tool built for artists who want more control over how their work is used online. AWS applies carefully generated perturbations to artwork that are nearly invisible to humans, but disruptive to computer vision systems commonly used in large-scale scraping and AI training pipelines.
 
-AWS (Artists With Soul) is a high-performance, privacy-centric adversarial poisoning tool designed to empower artists. It injects nearly invisible "noise" into digital artwork, making the images unreliable for AI training models (like Stable Diffusion or Midjourney) while preserving visual beauty for human viewers.
-
----
-
-## ✨ Key Features
-
-- **🛡️ Multi-Attack Defense**: Implements both **FGSM** (Fast Gradient Sign Method) and **PGD** (Projected Gradient Descent) to maximize protection strength.
-- **⚡ High Performance**:
-  - **Downscaled Computation**: Attacks are computed on 512px tensors and upscaled, allowing for near real-time processing even on 20MP images.
-  - **In-Memory Pipeline**: Zero disk I/O during processing; everything happens in RAM for maximum speed.
-- **🔍 X-Ray Vision (Grad-CAM)**: Visualizes exactly where the AI model is looking, demonstrating how the "poison" successfully redirects the model's focus.
-- **🕵️ Privacy First**: Automatically strips all EXIF metadata (GPS, camera info, timestamps) from every processed image.
-- **🏷️ Stealth Watermarking**: Embeds invisible LSB (Least Significant Bit) watermarks for ownership tracking without altering the aesthetic.
-- **📦 Batch Processing**: Upload a ZIP archive and get back a ZIP of protected images in seconds.
-- **🖥️ Dual Mode**: Full-featured Web UI (Flask) and a lightweight CLI for power users.
+Instead of focusing on watermarking alone, AWS treats protection as an adversarial machine learning problem — using the same techniques that expose weaknesses in neural networks to help creators defend their work.
 
 ---
 
-## 🚀 Getting Started
+# Inspiration
 
-### Prerequisites
+As AI models continue to evolve, the line between inspiration and scraping has become increasingly blurred. Many creators feel that the essence of their work is being absorbed into massive training datasets without permission or attribution.
 
-- **Python**: 3.10 or higher.
-- **Redis**: Required for the asynchronous task queue (Celery).
-- **GPU (Recommended)**: NVIDIA GPU with CUDA support for 10x faster processing.
-
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/taranprits2/AWS-Artists-With-Soul-.git
-   cd AWS-Artists-With-Soul-
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **(Optional) Setup CUDA (NVIDIA GPU)**:
-   If you have an NVIDIA GPU, install the optimized PyTorch binaries:
-   ```bash
-   pip uninstall torch torchvision -y
-   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
-   ```
+Artists With Souls (AWS) was created as a form of digital self-defense — a way for artists to protect their visual identity and retain control over how their work is used online.
 
 ---
 
-## 🛠️ Usage
+# How It Works
 
-### 1. Web Interface (Recommended)
+## Adversarial Protection Pipeline
 
-To run the full web application, you need to start three components:
+At the core of AWS is an adversarial machine learning pipeline designed to disrupt computer vision models commonly used for large-scale image scraping and dataset generation.
 
-- **Terminal 1 (Redis)**:
-  ```bash
-  redis-server
-  ```
-- **Terminal 2 (Celery Worker)**:
-  ```bash
-  celery -A app.celery_app worker --loglevel=info --pool=solo
-  ```
-- **Terminal 3 (Flask App)**:
-  ```bash
-  python app.py
-  ```
-Visit `http://127.0.0.1:5000` in your browser.
+AWS uses a pre-trained ResNet-50 model as a proxy for modern vision architectures and computes the gradient of the model’s loss with respect to the input image.
 
-### 2. Command Line Interface (CLI)
+Two attack methods are currently implemented:
 
-For quick, single-image poisoning:
+### FGSM (Fast Gradient Sign Method)
+
+A fast single-step perturbation method optimized for speed and lightweight processing.
+
+### PGD (Projected Gradient Descent)
+
+A stronger iterative attack that remains more resilient after compression, resizing, or minor image transformations.
+
+The perturbation process follows the adversarial formulation:
+
+```math
+x_{adv} = \text{Clip}_{x,\epsilon}\left\{x + \epsilon \cdot \text{sign}(\nabla_x L(\theta, x, y))\right\}
+```
+
+The generated perturbations are nearly imperceptible to the human eye but significantly interfere with how neural networks interpret the image.
+
+---
+
+## Grad-CAM Visualization
+
+AWS integrates Grad-CAM (Gradient-weighted Class Activation Mapping) to visualize how a model’s attention changes before and after protection is applied.
+
+In many cases, the model’s focus shifts away from the primary subject toward irrelevant regions after perturbation, demonstrating how the protection disrupts feature recognition.
+
+---
+
+# Performance Optimizations
+
+Early versions of AWS processed full-resolution images directly, resulting in extremely slow runtimes on CPU hardware.
+
+To solve this, the adversarial pipeline was redesigned around a lower-resolution attack pass:
+
+- Perturbations are generated on a downscaled 512px tensor
+- Noise is then upscaled and blended back into the original image
+- All processing occurs entirely in memory to avoid unnecessary disk I/O
+
+This reduced processing time by over 90% while maintaining strong adversarial effectiveness.
+
+---
+
+# Privacy Features
+
+AWS was designed around a local-first workflow focused on creator privacy.
+
+Features include:
+
+- Automatic EXIF metadata stripping
+- No external image uploads or cloud inference requirements
+- In-memory image processing pipeline
+- Optional invisible LSB watermark embedding for ownership tracking
+
+---
+
+# Application Stack
+
+AWS was built as a lightweight full-stack application.
+
+## Backend
+
+- Flask
+- PyTorch
+- Pillow
+- NumPy
+- Torchvision
+- Celery + Redis for asynchronous processing
+
+## Frontend
+
+- Custom HTML/CSS interface
+- Glassmorphism-inspired UI
+- Spline 3D integrations for interactive visuals
+
+---
+
+# Features
+
+- Multi-attack adversarial protection
+- Batch ZIP processing
+- Real-time preview generation
+- Grad-CAM attention visualization
+- PSNR quality monitoring
+- GPU acceleration support (CUDA)
+- Web UI and CLI support
+
+---
+
+# Protection Strength Guide
+
+| Setting | Epsilon | Visual Quality | Visibility |
+|---|---|---|---|
+| Ultra-Subtle | 0.005 | Very High | Virtually invisible |
+| Recommended | 0.010 | High | Indistinguishable |
+| Moderate | 0.020 | Medium | Minor grain on zoom |
+| Aggressive | 0.040 | Lower | Visible artifacts |
+
+---
+
+# Installation
+
+## Prerequisites
+
+- Python 3.10+
+- Redis
+- NVIDIA GPU with CUDA support (recommended)
+
+---
+
+## Clone the Repository
+
+```bash
+git clone https://github.com/taranprits2/AWS-Artists-With-Soul-.git
+cd AWS-Artists-With-Soul-
+```
+
+---
+
+## Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Optional CUDA Setup
+
+For NVIDIA GPU acceleration:
+
+```bash
+pip uninstall torch torchvision -y
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+```
+
+---
+
+# Running AWS
+
+## Web Application
+
+Start the following services in separate terminals.
+
+### Terminal 1 — Redis
+
+```bash
+redis-server
+```
+
+### Terminal 2 — Celery Worker
+
+```bash
+celery -A app.celery_app worker --loglevel=info --pool=solo
+```
+
+### Terminal 3 — Flask Application
+
+```bash
+python app.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:5000
+```
+
+---
+
+## CLI Mode
+
+For quick single-image protection:
+
 ```bash
 python poison_engine.py my_artwork.jpg --epsilon 0.01 --output protected.png
 ```
 
 ---
 
-## 🧠 Technology Stack
+# What We Learned
 
-- **Framework**: [Flask](https://flask.palletsprojects.com/) (Web Server)
-- **Deep Learning**: [PyTorch](https://pytorch.org/) (ResNet-50 Backend)
-- **Task Queue**: [Celery](https://docs.celeryq.dev/) + [Redis](https://redis.io/)
-- **Image Processing**: [Pillow](https://python-pillow.org/) + [NumPy](https://numpy.org/)
-- **UI Architecture**: In-memory Base64 serialization for zero-latency previews.
+Building AWS highlighted how fragile modern deep learning systems can be. Even highly capable vision models are vulnerable to extremely small, carefully structured perturbations.
+
+We also learned the importance of optimization when deploying ML systems on consumer hardware. Designing around lower-resolution adversarial passes made real-time processing practical without sacrificing meaningful attack strength.
 
 ---
 
-## 📊 Poison Strength Guide
+# Future Plans
 
-| Setting | Epsilon | PSNR (Quality) | Visibility |
-| :--- | :--- | :--- | :--- |
-| **Ultra-Subtle** | 0.005 | ~46 dB | Virtually Invisible |
-| **Recommended** | 0.010 | ~40 dB | Indistinguishable |
-| **Moderate** | 0.020 | ~34 dB | Minor grain on zoom |
-| **Aggressive** | 0.040 | ~28 dB | Visible artifacts |
+Future versions of AWS will move beyond a single-model approach by implementing ensemble-based adversarial generation.
 
----
+Instead of targeting only ResNet-50, upcoming versions aim to generate perturbations effective across multiple architectures, including:
 
-## 📜 License
+- Vision Transformers (ViTs)
+- Convolutional Neural Networks (CNNs)
+- Hybrid vision-language models
 
-Distributed under the **MIT License**. See `LICENSE` for more information (if applicable).
-
----
-
-Developed with ❤️ for the artist community. 🎨🛡️
+The long-term goal is to provide creators with a more universal layer of protection against automated scraping and unauthorized AI training pipelines.
