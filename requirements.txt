@@ -3,6 +3,9 @@ redis
 Flask
 Flask-Limiter
 Pillow
+# To install PyTorch with GPU (CUDA) support, run:
+# pip uninstall torch torchvision -y
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 torch
 torchvision
 numpy
