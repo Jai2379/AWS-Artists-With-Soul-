@@ -45,6 +45,9 @@ from torchvision import models, transforms
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 IMAGENET_STD  = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
 
+# Device configuration for GPU acceleration
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # Recommended epsilon ranges for different use-cases
 EPSILON_GUIDE = {
     "ultra-subtle":  0.005,   # PSNR ≈ 46+ dB — virtually invisible
@@ -65,7 +68,7 @@ def _load_image_as_tensor(image_path: str | Path) -> tuple[torch.Tensor, tuple[i
     original_size = img.size  # (W, H)
 
     to_tensor = transforms.ToTensor()  # scales uint8 → [0, 1]
-    tensor = to_tensor(img).unsqueeze(0)  # [1, 3, H, W]
+    tensor = to_tensor(img).unsqueeze(0).to(DEVICE)  # [1, 3, H, W]
     return tensor, original_size
 
 
@@ -81,7 +84,7 @@ def _pil_to_tensor(img: Image.Image) -> tuple[torch.Tensor, tuple[int, int]]:
     """
     img = img.convert("RGB")
     original_size = img.size  # (W, H)
-    tensor = transforms.ToTensor()(img).unsqueeze(0)  # [1, 3, H, W]
+    tensor = transforms.ToTensor()(img).unsqueeze(0).to(DEVICE)  # [1, 3, H, W]
     return tensor, original_size
 
 
@@ -115,6 +118,7 @@ def compute_psnr(original: torch.Tensor, poisoned: torch.Tensor) -> float:
 def _get_model() -> torch.nn.Module:
     """Return a pretrained ResNet-50 in eval mode."""
     model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+    model.to(DEVICE)
     model.eval()
     return model
 
