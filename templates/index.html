@@ -3,599 +3,426 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Poison — AI-Proof Your Work</title>
-    <meta name="description" content="Instantly apply imperceptible adversarial noise to your images. Stop AI models from scraping and training on your work.">
-    
-    <!-- Using Geist if available, fallback to Inter -->
+    <title>Artists With Souls</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #000000;
-            --fg: #ededed;
-            --fg-muted: #a1a1aa;
-            --border: #27272a;
-            --border-hover: #3f3f46;
-            --acc-bg: #ffffff;
-            --acc-fg: #000000;
-            --danger: #ef4444;
-            --danger-bg: rgba(239, 68, 68, 0.1);
-            --success: #10b981;
-            --success-bg: rgba(16, 185, 129, 0.1);
-            --warning: #f59e0b;
-            --warning-bg: rgba(245, 158, 11, 0.1);
-            --info: #3b82f6;
-            --info-bg: rgba(59, 130, 246, 0.1);
-            --radius: 8px;
-            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            --transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            --bg-dark: #FCF5E5;
+            --bg-darker: #F2E8D5;
+            --text-cream: #1a0500;
+            --accent-ember: #FF6B35;
+            --accent-gold: #D4A017;
+            --accent-rose: #FF4E6A;
+            --accent-green: #4CAF82;
+            
+            --font-head: 'Cormorant Garamond', serif;
+            --font-mono: 'DM Mono', monospace;
+            
+            --gap-color: rgba(26, 5, 0, 0.05);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::selection { background: rgba(255, 107, 53, 0.35); color: #FFF8EE; }
+        ::-moz-selection { background: rgba(255, 107, 53, 0.35); color: #FFF8EE; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #1a0500; }
+        ::-webkit-scrollbar-thumb { background: #FF6B35; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #FFD97D; }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
-            font-family: var(--font-sans);
-            background-color: var(--bg);
-            color: var(--fg);
-            line-height: 1.5;
+            background-color: var(--bg-dark);
+            color: var(--text-cream);
+            font-family: var(--font-mono);
+            overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
 
-        /* Ambient Glow */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0; left: 50%;
-            transform: translateX(-50%);
-            width: 800px; height: 400px;
-            background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: -1;
+        /* Overlays */
+        .grain-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 9000; opacity: 0.035;
         }
-
-        .container {
-            width: 100%;
-            max-width: 768px;
-            padding: 4rem 1.5rem;
+        .vignette-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 8999;
+            background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.15) 100%);
         }
 
         /* Typography */
-        h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            letter-spacing: -0.04em;
-            margin-bottom: 0.5rem;
-            color: var(--fg);
+        h1, h2, h3, h4, h5, h6, .font-head { font-family: var(--font-head); font-weight: 400; }
+        .italic-gold { font-style: italic; color: var(--accent-gold); }
+        .italic-ember { font-style: italic; color: var(--accent-ember); }
+        .mono-small {
+            font-family: var(--font-mono); font-size: 0.85rem; letter-spacing: 0.05em;
+            text-transform: lowercase; color: rgba(26, 5, 0, 0.7); line-height: 1.6;
         }
-        
-        p.subtitle {
-            font-size: 1rem;
-            color: var(--fg-muted);
-            margin-bottom: 3rem;
-            max-width: 600px;
+        .mono-tiny-upper {
+            font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.1em;
+            text-transform: uppercase; color: rgba(26, 5, 0, 0.6);
         }
-
-        /* Cards & Containers */
-        .panel {
-            background: #0a0a0a;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            transition: border-color var(--transition);
+        .section-label {
+            color: var(--accent-ember); margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem;
         }
-        
-        .panel:hover {
-            border-color: var(--border-hover);
+        .section-label::before {
+            content: ''; display: inline-block; width: 20px; height: 1px; background-color: var(--accent-ember);
         }
-
-        .panel-header {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--fg);
-            margin-bottom: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* Upload Zone */
-        .upload-zone {
-            border: 1px dashed var(--border);
-            border-radius: var(--radius);
-            padding: 3rem 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all var(--transition);
-            background: rgba(255,255,255,0.01);
-        }
-
-        .upload-zone:hover, .upload-zone.dragover {
-            border-color: var(--fg-muted);
-            background: rgba(255,255,255,0.03);
-        }
-
-        .upload-zone.has-file {
-            border-style: solid;
-            border-color: var(--border-hover);
-            padding: 1.5rem;
-            background: #0a0a0a;
-        }
-
-        .upload-text {
-            font-size: 0.875rem;
-            color: var(--fg-muted);
-        }
-
-        .upload-text strong {
-            color: var(--fg);
-            font-weight: 500;
-        }
-
-        .file-info {
-            display: none;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-        }
-
-        .upload-zone.has-file .file-info { display: flex; }
-        .upload-zone.has-file .upload-placeholder { display: none; }
-
-        .file-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.875rem;
-        }
-
-        .file-name {
-            font-weight: 500;
-            color: var(--fg);
-            max-width: 250px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .file-size {
-            color: var(--fg-muted);
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-        }
-
-        .btn-icon {
-            background: transparent;
-            border: none;
-            color: var(--fg-muted);
-            cursor: pointer;
-            padding: 0.25rem;
-            border-radius: 4px;
-            transition: color var(--transition), background var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .btn-icon:hover {
-            color: var(--danger);
-            background: var(--danger-bg);
-        }
-
-        /* Controls */
-        .controls {
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border);
-        }
-
-        .slider-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-            font-size: 0.875rem;
-        }
-
-        .slider-label { color: var(--fg-muted); }
-        .slider-value { 
-            font-family: var(--font-mono); 
-            color: var(--fg);
-            background: #111;
-            padding: 2px 6px;
-            border-radius: 4px;
-            border: 1px solid var(--border);
-        }
-
-        input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 4px;
-            background: var(--border);
-            border-radius: 2px;
-            outline: none;
-            margin: 0.5rem 0;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            background: var(--acc-bg);
-            border-radius: 50%;
-            cursor: pointer;
-            transition: transform var(--transition);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-        }
-
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-        }
-
-        .presets {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .preset-btn {
-            background: #111;
-            border: 1px solid var(--border);
-            color: var(--fg-muted);
-            padding: 0.375rem 0.75rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all var(--transition);
-            font-family: var(--font-sans);
-        }
-
-        .preset-btn:hover {
-            border-color: var(--fg-muted);
-            color: var(--fg);
-        }
+        .tw-trigger { visibility: hidden; }
 
         /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0.8rem 1.5rem; font-family: var(--font-mono); font-size: 0.85rem;
+            letter-spacing: 0.05em; text-transform: uppercase; border: none; outline: none;
+            transition: all 0.3s ease; text-decoration: none;
+        }
+        .btn:disabled { opacity: 0.5; pointer-events: none; }
         .btn-primary {
-            background: var(--acc-bg);
-            color: var(--acc-fg);
-            border: 1px solid transparent;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            width: 100%;
-            cursor: pointer;
-            transition: all var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1.5rem;
-            font-family: var(--font-sans);
+            background-color: var(--accent-ember); color: var(--text-cream);
+            box-shadow: 0 0 0 0 rgba(255,107,53,0);
+            transition: all 0.3s ease, box-shadow 0.3s ease;
         }
-
-        .btn-primary:hover:not(:disabled) {
-            background: #e5e5e5;
-            transform: translateY(-1px);
+        .btn-primary:hover {
+            background-color: #e55a2b; transform: translateY(-2px);
+            box-shadow: 0 0 24px 4px rgba(255,107,53,0.35);
         }
-
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .btn-primary:active {
+            box-shadow: 0 0 48px 8px rgba(255,107,53,0.6);
+            transition: box-shadow 0.15s ease;
         }
-
-        .btn-secondary {
-            background: #111;
-            color: var(--fg);
-            border: 1px solid var(--border);
-            padding: 0.625rem 1rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all var(--transition);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-family: var(--font-sans);
+        .btn-ghost {
+            background-color: transparent; color: var(--text-cream);
+            border: 1px solid rgba(26, 5, 0, 0.2);
         }
+        .btn-ghost:hover { border-color: var(--accent-ember); color: var(--accent-ember); }
 
-        .btn-secondary:hover:not(:disabled) {
-            background: #1a1a1a;
-            border-color: var(--border-hover);
+        /* Custom Cursor */
+        
+        .cursor-trail {
+            position: fixed; border-radius: 50%; pointer-events: none; z-index: 9998;
+            mix-blend-mode: screen; transform: translate(-50%, -50%); animation: fadeOut 0.5s forwards;
         }
+        @keyframes fadeOut { 0% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); } }
 
-        /* Spinner */
-        .spinner {
-            display: none;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(0,0,0,0.1);
-            border-top-color: #000;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+        /* Navigation */
+        nav {
+            position: fixed; top: 0; left: 0; width: 100%; padding: 2rem 4rem;
+            display: flex; justify-content: space-between; align-items: center; z-index: 100;
+            background: linear-gradient(to bottom, rgba(252, 245, 229, 0.9) 0%, rgba(252, 245, 229, 0) 100%);
+        }
+        .logo { font-size: 1.5rem; color: var(--text-cream); text-decoration: none; }
+        .nav-links { display: flex; gap: 2rem; }
+        .nav-links a { color: var(--text-cream); text-decoration: none; transition: color 0.3s; }
+        .nav-links a:hover { color: var(--accent-ember); }
+
+        /* Layout & Dividers */
+        section { padding: 8rem 4rem; position: relative; margin-bottom: -40px; padding-bottom: calc(8rem + 40px); z-index: 1; }
+        .bg-alt { background-color: var(--bg-darker); }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .fade-up { opacity: 0; transform: translateY(24px); transition: opacity 0.8s ease, transform 0.8s ease; }
+        .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+        #hero { z-index: 3; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 40px), 0 100%); }
+        #problem { z-index: 4; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 calc(100% - 40px)); }
+        #how { z-index: 5; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 40px), 0 100%); }
+        #protect { z-index: 6; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 calc(100% - 40px)); }
+        #manifesto { z-index: 7; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 40px), 0 100%); }
+        #faq { z-index: 8; clip-path: none; margin-bottom: 0; padding-bottom: 8rem; }
+
+        /* Hero */
+        #hero { height: 100vh; padding: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #bgCanvas, #paintCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #dripCanvas { position: absolute; bottom: 0; left: 0; width: 100%; height: 100px; z-index: 10; pointer-events: none; }
+        #bgCanvas { z-index: 1; } #paintCanvas { z-index: 2; }
+        .hero-content { position: relative; z-index: 10; text-align: center; pointer-events: none; will-change: transform; }
+        .hero-title { font-size: 5vw; line-height: 1.1; margin-bottom: 2rem; }
+        .cursor-blink { color: var(--accent-ember); animation: blink 1s step-end infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .hero-desc { max-width: 500px; margin: 0 auto 3rem; font-size: 1rem; }
+        .hero-actions { pointer-events: auto; display: flex; gap: 1rem; justify-content: center; }
+        .hero-hint { position: absolute; bottom: 4rem; left: 50%; transform: translateX(-50%); z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; pointer-events: none; }
+        .hint-line { width: 1px; height: 40px; background-color: var(--accent-ember); animation: pulseHeight 2s infinite; }
+        @keyframes pulseHeight { 0%, 100% { height: 20px; opacity: 0.5; } 50% { height: 40px; opacity: 1; } }
+
+        /* Problem Section */
+        .split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+        .problem-title { font-size: 4rem; line-height: 1.1; margin-bottom: 2rem; }
+        .problem-desc { margin-bottom: 3rem; max-width: 480px; }
+        .stats { display: flex; gap: 3rem; }
+        .stat-item { border-left: 2px solid var(--accent-ember); padding-left: 1rem; }
+        .stat-num { font-size: 3rem; color: var(--accent-gold); line-height: 1; margin-bottom: 0.5rem; }
+        
+        .panels-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1rem; height: 500px; }
+        .panel-large { grid-column: 1 / -1; }
+        .art-panel { background-color: #000; position: relative; overflow: hidden; border: 1px solid var(--gap-color); transition: all 0.3s; }
+        .art-panel:hover { box-shadow: 0 0 30px rgba(255, 107, 53, 0.4); transform: translateY(-4px); z-index: 10; }
+        .art-panel canvas { width: 100%; height: 100%; display: block; }
+        .panel-badge { position: absolute; bottom: 1rem; left: 1rem; background: rgba(0,0,0,0.6); padding: 0.3rem 0.6rem; border-left: 2px solid; backdrop-filter: blur(4px); }
+
+        /* How It Works */
+        .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background-color: var(--gap-color); border: 2px solid var(--gap-color); }
+        .how-card, .faq-card {
+            background-color: var(--bg-dark); padding: 4rem 3rem; position: relative;
+            box-shadow: 0 1px 0 rgba(255,248,238,0.04), 0 4px 24px rgba(0,0,0,0.4);
+            transition: box-shadow 0.25s ease, transform 0.25s ease;
+        }
+        .how-card:hover, .faq-card:hover {
+            box-shadow: 0 0 30px rgba(255, 107, 53, 0.4);
+            transform: translateY(-4px);
+            z-index: 10;
+        }
+        .step-num { position: absolute; top: 2rem; right: 2rem; color: var(--accent-ember); opacity: 0.5; }
+        .how-icon { width: 32px; height: 32px; margin-bottom: 2rem; color: var(--accent-gold); }
+        .how-title { font-size: 2rem; margin-bottom: 1rem; color: var(--text-cream); }
+
+        /* Protect Section */
+        .protect-container { max-width: 800px; margin: 0 auto; text-align: center; }
+        .protect-title { font-size: 3.5rem; margin-bottom: 3rem; }
+        
+        @keyframes borderPulse { 0%, 100% { border-color: rgba(26, 5, 0, 0.18); } 50% { border-color: rgba(26, 5, 0, 0.35); } }
+        .dropzone {
+            border: 1px dashed rgba(26, 5, 0, 0.18); padding: 4rem 2rem; position: relative; transition: all 0.3s;
+            animation: borderPulse 2.5s infinite ease-in-out;
+        }
+        .dropzone:hover, .dropzone.dragover {
+            animation: none;
+            border-color: var(--accent-ember);
+            background: rgba(255, 107, 53, 0.05);
+            box-shadow: 0 0 30px rgba(255, 107, 53, 0.4);
+            transform: translateY(-4px);
         }
         
-        .btn-secondary .spinner {
-            border: 2px solid rgba(255,255,255,0.1);
-            border-top-color: #fff;
-        }
+        .corner { position: absolute; width: 20px; height: 20px; border: 1px solid rgba(26, 5, 0, 0.2); transition: border-color 0.3s; }
+        .corner-tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+        .corner-tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+        .corner-br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+        .dropzone:hover .corner, .dropzone.dragover .corner { border-color: var(--accent-ember); }
+        .emoji-icon { font-size: 3rem; margin-bottom: 1rem; }
 
-        .loading .spinner { display: block; }
-        .loading .btn-text { display: none; }
+        .progress-container { display: none; margin-top: 2rem; text-align: left; }
+        .progress-track { height: 2px; background: var(--gap-color); width: 100%; margin-bottom: 0.5rem; }
+        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-ember), var(--accent-gold)); transition: width 0.1s linear; }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Progress Bar */
-        .progress-wrap {
-            margin-top: 1.5rem;
-            display: none;
-        }
+        /* Form Controls */
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem; text-align: left; }
+        @media(max-width: 600px) { .config-grid { grid-template-columns: 1fr; } }
+        .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .form-label { font-family: var(--font-mono); font-size: 0.75rem; color: rgba(26, 5, 0, 0.7); text-transform: uppercase; letter-spacing: 0.05em; }
+        .form-input, .form-select { background-color: var(--bg-darker); border: 1px solid rgba(26, 5, 0, 0.2); color: var(--text-cream); padding: 0.8rem; font-family: var(--font-mono); font-size: 0.85rem; outline: none; transition: border-color 0.3s; }
+        .form-input:focus, .form-select:focus { border-color: var(--accent-ember); }
         
-        .progress-wrap.visible { display: block; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 2px; background: rgba(26, 5, 0, 0.2); outline: none; margin: 1rem 0; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent-gold); border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
         
-        .progress-label {
-            font-size: 0.75rem;
-            color: var(--fg-muted);
-            margin-bottom: 0.5rem;
-            display: flex;
-            justify-content: space-between;
-        }
+        .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .preset-btn { background: transparent; border: 1px solid rgba(26, 5, 0, 0.2); color: rgba(26, 5, 0, 0.7); padding: 0.3rem 0.6rem; font-size: 0.65rem; font-family: var(--font-mono); cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
+        .preset-btn:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
 
-        .progress-track {
-            height: 4px;
-            background: #111;
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background: var(--fg);
-            border-radius: 2px;
-            transition: width 0.3s ease;
-        }
-
-        /* Badges */
-        .badge {
-            font-size: 0.75rem;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
+        /* Results UI */
+        .results-container { display: none; margin-top: 3rem; }
+        .results-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+        @media(min-width: 768px) { .results-grid { grid-template-columns: 1fr 1fr; } }
         
-        .badge-invisible { background: var(--success-bg); color: var(--success); }
-        .badge-good { background: var(--success-bg); color: var(--success); }
-        .badge-moderate { background: var(--warning-bg); color: var(--warning); }
-        .badge-aggressive { background: var(--danger-bg); color: var(--danger); }
+        .metric-block { background: var(--bg-darker); border: 1px solid var(--gap-color); padding: 1.5rem; text-align: center; }
+        .metric-val { font-family: var(--font-head); font-size: 2.5rem; color: var(--accent-gold); line-height: 1; margin-bottom: 0.5rem; }
         
-        .security-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border);
-        }
+        .pred-row { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.2rem; color: var(--text-cream); }
+        .pred-bar-bg { background: rgba(26, 5, 0, 0.1); height: 4px; margin-bottom: 0.8rem; }
+        .pred-bar-fill { height: 100%; background: var(--accent-green); }
+        .pred-bar-fill.danger { background: var(--accent-rose); }
         
-        .sec-badge {
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            border: 1px solid var(--border);
-            color: var(--fg-muted);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        /* Results Area */
-        .results {
-            display: none;
-            margin-top: 2rem;
-            animation: fadeIn 0.4s ease forwards;
-        }
-
-        .results.visible { display: block; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .metric {
-            background: #0a0a0a;
-            border: 1px solid var(--border);
-            padding: 1rem;
-            border-radius: var(--radius);
-        }
-
-        .metric-label {
-            font-size: 0.75rem;
-            color: var(--fg-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.25rem;
-        }
-
-        .metric-value {
-            font-size: 1.25rem;
-            font-family: var(--font-mono);
-            font-weight: 600;
-            color: var(--fg);
-        }
-
-        /* Image Grids */
-        .image-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .image-box {
-            position: relative;
-            background: #111;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-            aspect-ratio: 1/1; /* Or auto depending on image */
-        }
-
-        .image-box img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
-        }
-
-        .image-label {
-            position: absolute;
-            top: 0.75rem;
-            left: 0.75rem;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(4px);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .gradcam-note {
-            font-size: 0.875rem;
-            color: var(--fg-muted);
-            background: #0a0a0a;
-            border: 1px solid var(--border);
-            padding: 1rem;
-            border-radius: var(--radius);
-            margin-bottom: 1.5rem;
-            display: flex;
-            gap: 0.75rem;
-        }
+        .image-box { position: relative; background: #000; border: 1px solid var(--gap-color); }
+        .image-box img { width: 100%; display: block; object-fit: contain; }
+        .image-label { position: absolute; top: 0.5rem; left: 0.5rem; background: rgba(0,0,0,0.8); padding: 0.2rem 0.5rem; font-size: 0.65rem; text-transform: uppercase; }
         
-        .gradcam-note svg {
-            flex-shrink: 0;
-            color: var(--fg);
-        }
+        /* Batch processing */
+        .batch-section { margin-top: 4rem; padding-top: 4rem; border-top: 1px solid var(--gap-color); }
 
-        .actions-row {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 1.5rem;
-        }
+        /* Manifesto */
+        #manifesto { text-align: center; }
+        .manifesto-quote { font-size: 2.5rem; line-height: 1.4; color: rgba(26, 5, 0, 0.8); margin-bottom: 2rem; max-width: 800px; margin-inline: auto; }
 
-        /* Error Toast */
-        .toast {
-            position: fixed;
-            bottom: 2rem;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: #111;
-            border: 1px solid var(--danger);
-            color: var(--fg);
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 100;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+        /* FAQ */
+        .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background-color: var(--gap-color); border: 2px solid var(--gap-color); }
+        .faq-card { padding: 3rem; }
+        .faq-q { font-size: 1.5rem; margin-bottom: 1rem; color: var(--accent-gold); }
 
-        .toast.show { transform: translateX(-50%) translateY(0); }
-
-        @media (max-width: 640px) {
-            .image-grid { grid-template-columns: 1fr; }
-            .metrics { grid-template-columns: 1fr; }
-        }
+        /* Footer */
+        footer { border-top: 1px solid var(--gap-color); padding: 2rem 4rem; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+        .footer-credit { text-align: center; }
+        .footer-links { text-align: right; display: flex; gap: 1.5rem; justify-content: flex-end; }
+        .footer-links a { color: var(--text-cream); text-decoration: none; }
+        .footer-links a:hover { color: var(--accent-ember); }
         
-        /* Utility */
-        .mono { font-family: var(--font-mono); }
-        .text-success { color: var(--success); }
-        .text-warning { color: var(--warning); }
-        .text-danger { color: var(--danger); }
-        
-        .form-input {
-            width: 100%; background: #111; border: 1px solid var(--border); color: var(--fg);
-            padding: 0.5rem; border-radius: 4px; font-size: 0.875rem; font-family: var(--font-sans); outline: none;
-        }
-        .form-input:focus { border-color: var(--fg-muted); }
-        .pred-row { display: flex; justify-content: space-between; font-size: 0.875rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
-        .pred-row:last-child { border-bottom: none; }
-        .pred-bar { height: 4px; border-radius: 2px; margin-top: 4px; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Poison.</h1>
-        <p class="subtitle">Instantly apply imperceptible adversarial noise to your images. Render them useless to unauthorized AI training models.</p>
+    <div class="grain-overlay">
+        <svg width="100%" height="100%">
+            <filter id="grain">
+                <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3"/>
+                <feColorMatrix type="saturate" values="0"/>
+            </filter>
+            <rect width="100%" height="100%" filter="url(#grain)"/>
+        </svg>
+    </div>
+    <div class="vignette-overlay"></div>
+    
+    <nav>
+        <a href="#" class="logo font-head bold interactive">Artists <span class="italic-ember">With</span> Souls</a>
+        <div class="nav-links mono-tiny-upper">
+            <a href="#problem" class="interactive">the problem</a>
+            <a href="#how" class="interactive">how it works</a>
+            <a href="#protect" class="interactive">protect</a>
+            <a href="#manifesto" class="interactive">manifesto</a>
+        </div>
+    </nav>
 
-        <!-- Single Image Panel -->
-        <div class="panel">
-            <div class="panel-header" style="margin-bottom:1rem;">
-                <span>Single Image Processing</span>
-                <button id="cameraBtn" class="btn-icon" style="font-size:0.75rem; gap:4px; border:1px solid var(--border); padding:4px 8px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Camera
-                </button>
+    <section id="hero">
+        <canvas id="bgCanvas"></canvas>
+        <canvas id="paintCanvas"></canvas>
+        <canvas id="dripCanvas"></canvas>
+        <div class="hero-content">
+            <h1 class="hero-title font-head">
+                <span id="heroTypeWriter"></span><span class="cursor-blink">|</span>
+            </h1>
+            <p class="hero-desc mono-small fade-up" style="transition-delay: 0.2s">
+                Apply adversarial noise to your images to disrupt AI scraping algorithms while preserving human aesthetic.
+            </p>
+            <div class="hero-actions fade-up" style="transition-delay: 0.4s">
+                <a href="#protect" class="btn btn-primary interactive">Protect my art</a>
+                <a href="#how" class="btn btn-ghost interactive">See how it works</a>
+            </div>
+        </div>
+        <div class="hero-hint fade-up" style="transition-delay: 0.6s">
+            <span class="mono-tiny-upper">paint the canvas</span>
+            <div class="hint-line"></div>
+        </div>
+    </section>
+
+    <section id="problem" class="bg-alt">
+        <div class="container split-layout">
+            <div class="fade-up">
+                <div class="section-label mono-tiny-upper tw-trigger"><span class="tw-text" data-text="01 the problem"></span></div>
+                <h2 class="problem-title font-head">Machines learn.<br><strong class="italic-gold">Artists lose.</strong></h2>
+                <p class="mono-small problem-desc">Every time you publish your work, algorithmic crawlers ingest it. Your style, your emotion, your lifetime of practice becomes data points in a billion-parameter model, used to generate synthetic imitations.</p>
+                <p class="mono-small problem-desc">We can't stop them from taking the image. But we can poison the data they extract from it.</p>
+                
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-num font-head stat-trigger" data-target="5.4" data-suffix="B">0</div>
+                        <div class="mono-tiny-upper">images in laion-5b</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num font-head stat-trigger" data-target="0" data-suffix="">0</div>
+                        <div class="mono-tiny-upper">permissions asked</div>
+                    </div>
+                </div>
             </div>
             
-            <div class="upload-zone" id="uploadZone">
-                <div class="upload-placeholder">
-                    <div class="upload-text"><strong>Click to upload</strong> or drag and drop</div>
-                    <div class="upload-text" style="margin-top: 0.25rem; font-size: 0.75rem;">PNG, JPG, WEBP (Max 50MB)</div>
+            <div class="panels-grid fade-up" style="transition-delay: 0.2s">
+                <div class="art-panel panel-large">
+                    <canvas id="panelOriginal"></canvas>
+                    <div class="panel-badge mono-tiny-upper" style="border-color: var(--accent-gold)">Human Original</div>
+                </div>
+                <div class="art-panel">
+                    <canvas id="panelAI"></canvas>
+                    <div class="panel-badge mono-tiny-upper" style="border-color: var(--accent-rose)">AI Attempt</div>
+                </div>
+                <div class="art-panel">
+                    <canvas id="panelProtected"></canvas>
+                    <div class="panel-badge mono-tiny-upper" style="border-color: var(--accent-green)">AWS Protected</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="how">
+        <div class="container">
+            <div class="section-label mono-tiny-upper tw-trigger"><span class="tw-text" data-text="02 how it works"></span></div>
+            <div class="how-grid">
+                <div class="how-card fade-up">
+                    <div class="step-num mono-tiny-upper">01</div>
+                    <svg class="how-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <h3 class="how-title font-head">Upload</h3>
+                    <p class="mono-small">Select your finished artwork. Our robust engine securely receives the file into memory without saving it to disk.</p>
+                </div>
+                <div class="how-card fade-up" style="transition-delay: 0.2s">
+                    <div class="step-num mono-tiny-upper">02</div>
+                    <svg class="how-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    <h3 class="how-title font-head">Distort</h3>
+                    <p class="mono-small">We apply calculated adversarial noise using FGSM/PGD algorithms, disrupting standard convolutional architectures used by scrapers.</p>
+                </div>
+                <div class="how-card fade-up" style="transition-delay: 0.4s">
+                    <div class="step-num mono-tiny-upper">03</div>
+                    <svg class="how-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <h3 class="how-title font-head">Publish</h3>
+                    <p class="mono-small">Download your protected image. To human eyes, it looks identical. To a machine, it looks like categorized garbage. Safe to share.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="protect" class="bg-alt">
+        <div class="container protect-container fade-up">
+            <div class="section-label mono-tiny-upper tw-trigger" style="justify-content: center"><span class="tw-text" data-text="03 protect"></span></div>
+            <h2 class="protect-title font-head">Drop your art here.<br><span class="italic-gold">We'll make it machine-proof.</span></h2>
+            
+            <div class="dropzone interactive" id="dropzone">
+                <div class="corner corner-tl"></div>
+                <div class="corner corner-tr"></div>
+                <div class="corner corner-bl"></div>
+                <div class="corner corner-br"></div>
+                
+                <div id="upload-ui">
+                    <div class="emoji-icon">🎨</div>
+                    <h3 class="font-head" style="font-size: 2rem; margin-bottom: 0.5rem;">Select Canvas</h3>
+                    <p class="mono-small" style="margin-bottom: 2rem;">PNG, JPG, WEBP (Max 50MB)</p>
+                    <button class="btn btn-primary" id="fileBtn">Choose File</button>
+                    <input type="file" id="fileInput" class="hidden" accept="image/*">
                 </div>
                 
-                <div class="file-info">
-                    <div class="file-meta">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                        <span class="file-name" id="fileName">image.png</span>
-                        <span class="file-size" id="fileSize">2.4 MB</span>
+                <div id="progress-ui" class="progress-container">
+                    <div class="mono-tiny-upper" style="margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+                        <span id="status-text">Uploading to secure buffer...</span>
+                        <span id="pct-text">0%</span>
                     </div>
-                    <button class="btn-icon" id="fileRemove" aria-label="Remove file">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progress-bar"></div>
+                    </div>
                 </div>
             </div>
-            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" style="display:none">
-            
-            <div style="display:flex; gap:1rem; margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem;">
-                <div style="flex:1;">
-                    <label class="slider-label" style="display:block; margin-bottom:4px;">Attack Algorithm</label>
-                    <select id="attackMode" class="form-input">
+
+            <!-- Configuration -->
+            <div class="config-grid">
+                <div class="form-group">
+                    <label class="form-label">Attack Algorithm</label>
+                    <select id="attackMode" class="form-select interactive">
                         <option value="fgsm">FGSM (Fast, Standard)</option>
                         <option value="pgd">PGD (Deep, Robust)</option>
                     </select>
                 </div>
-                <div style="flex:1;">
-                    <label class="slider-label" style="display:block; margin-bottom:4px;">Target Class (Cloak)</label>
-                    <select id="targetClass" class="form-input">
+                <div class="form-group">
+                    <label class="form-label">Target Class (Cloak)</label>
+                    <select id="targetClass" class="form-select interactive">
                         <option value="">Untargeted (Default)</option>
                         <option value="859">Toaster (859)</option>
                         <option value="954">Banana (954)</option>
@@ -604,455 +431,465 @@
                         <option value="449">Sleeping Bag (449)</option>
                     </select>
                 </div>
-            </div>
-            <div style="margin-top:1rem;">
-                <label class="slider-label" style="display:block; margin-bottom:4px;">Invisible Watermark (LSB)</label>
-                <input type="text" id="watermarkText" class="form-input" placeholder="e.g. Property of Hackathon Team" maxlength="64">
-            </div>
-
-            <div class="controls" style="border-top:none; padding-top:1.5rem;">
-                <div class="slider-header">
-                    <span class="slider-label">Perturbation Strength (&epsilon;)</span>
-                    <span class="slider-value" id="epsilonValue">0.010</span>
+                <div class="form-group">
+                    <label class="form-label">Invisible Watermark (LSB)</label>
+                    <input type="text" id="watermarkText" class="form-input interactive" placeholder="e.g. Property of Human" maxlength="64">
                 </div>
-                
-                <input type="range" id="epsilonSlider" min="0.001" max="0.060" step="0.001" value="0.010">
-                
-                <div style="display:flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                <div class="form-group">
+                    <label class="form-label">Perturbation Strength (&epsilon;): <span id="epsilonValue" style="color:var(--accent-gold)">0.010</span></label>
+                    <input type="range" id="epsilonSlider" class="interactive" min="0.001" max="0.060" step="0.001" value="0.010">
                     <div class="presets">
-                        <button class="preset-btn" data-val="0.005">Subtle</button>
-                        <button class="preset-btn" data-val="0.010">Recommended</button>
-                        <button class="preset-btn" data-val="0.020">Moderate</button>
-                        <button class="preset-btn" data-val="0.040">Aggressive</button>
-                    </div>
-                    <div class="badge badge-good" id="qualityBadge">~40 dB PSNR</div>
-                </div>
-
-                <button class="btn-primary" id="poisonBtn" disabled>
-                    <span class="btn-text">Generate Poison</span>
-                    <div class="spinner"></div>
-                </button>
-                
-                <div class="progress-wrap" id="progressWrap">
-                    <div class="progress-label">
-                        <span id="progressLabel">Initializing...</span>
-                        <span class="mono" id="progressPct">0%</span>
-                    </div>
-                    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-                </div>
-                
-                <div class="security-badges" id="securityBadges" style="display:none">
-                    <span class="sec-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> EXIF Stripped</span>
-                    <span class="sec-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> In-Memory Processing</span>
-                    <span class="sec-badge" id="modeBadge">Sync Mode</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Batch Panel -->
-        <div class="panel">
-            <div class="panel-header">Batch Processing</div>
-            <div class="upload-zone" id="batchDrop" style="padding: 1.5rem;">
-                <div id="batchPlaceholder">
-                    <div class="upload-text"><strong>Upload .zip archive</strong> (Max 100 images)</div>
-                </div>
-                <div class="file-info" id="batchFileInfoWrap" style="display:none; justify-content: center;">
-                    <div class="file-meta">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        <span class="file-name" id="batchFileInfo">archive.zip</span>
+                        <button class="preset-btn interactive" data-val="0.005">Subtle</button>
+                        <button class="preset-btn interactive" data-val="0.010">Rec</button>
+                        <button class="preset-btn interactive" data-val="0.020">Mod</button>
+                        <button class="preset-btn interactive" data-val="0.040">Aggr</button>
                     </div>
                 </div>
-            </div>
-            <input type="file" id="batchFileInput" accept=".zip" style="display:none">
-            
-            <button class="btn-secondary" id="batchBtn" disabled style="width:100%; justify-content:center; margin-top: 1rem;">
-                <span class="btn-text">Process Batch Archive</span>
-                <div class="spinner"></div>
-            </button>
-        </div>
-
-        <!-- Results Area -->
-        <div class="results" id="results">
-            <div class="metrics">
-                <div class="metric">
-                    <div class="metric-label">PSNR</div>
-                    <div class="metric-value text-success" id="metricPsnr">-- dB</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Epsilon</div>
-                    <div class="metric-value" id="metricEps">--</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Dimensions</div>
-                    <div class="metric-value" id="metricRes">--</div>
-                </div>
-            </div>
-
-            <div class="panel-header" style="margin-top: 2rem;">Live AI Predictions</div>
-            <div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
-                <div class="panel" style="flex:1; margin-bottom:0; padding:1rem;">
-                    <div class="metric-label" style="margin-bottom:0.5rem;">Before Protection</div>
-                    <div id="origPredsList"></div>
-                </div>
-                <div class="panel" style="flex:1; margin-bottom:0; padding:1rem;">
-                    <div class="metric-label" style="margin-bottom:0.5rem; color:var(--danger)">After Protection</div>
-                    <div id="poisonedPredsList"></div>
-                </div>
-            </div>
-
-            <div class="panel-header" style="margin-top: 2rem;">Visual Comparison</div>
-            <div class="image-grid">
-                <div class="image-box">
-                    <span class="image-label">Original</span>
-                    <img id="originalImg" alt="Original">
-                </div>
-                <div class="image-box">
-                    <span class="image-label">Protected</span>
-                    <img id="poisonedImg" alt="Poisoned">
-                </div>
-            </div>
-
-            <div class="panel-header" style="margin-top: 2rem;">Attention Shift (Grad-CAM)</div>
-            <div class="gradcam-note">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                <span>Heatmaps reveal where the AI focuses. Notice how the protected image forces the AI to look at irrelevant background noise, destroying its ability to classify the subject.</span>
             </div>
             
-            <div class="image-grid">
-                <div class="image-box">
-                    <span class="image-label" style="color:var(--warning)">Focus: Original</span>
-                    <img id="gradcamOrigImg" alt="Original Heatmap">
+            <button class="btn btn-primary interactive" id="poisonBtn" disabled style="width: 100%; margin-top: 2rem;">Apply Protection</button>
+
+            <!-- Results UI -->
+            <div id="results-ui" class="results-container" style="display:none; text-align:left;">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 2rem;">
+                    <div class="metric-block" style="flex:1; margin-right:1rem;">
+                        <div class="metric-val" id="metricPsnr">--</div>
+                        <div class="mono-tiny-upper">Quality (PSNR)</div>
+                    </div>
+                    <div class="metric-block" style="flex:1; margin-right:1rem;">
+                        <div class="metric-val" id="metricEps">--</div>
+                        <div class="mono-tiny-upper">Strength (&epsilon;)</div>
+                    </div>
+                    <div class="metric-block" style="flex:1;">
+                        <div class="metric-val" id="metricRes" style="font-size:1.5rem; line-height:2.5rem;">--</div>
+                        <div class="mono-tiny-upper">Dimensions</div>
+                    </div>
                 </div>
-                <div class="image-box">
-                    <span class="image-label" style="color:var(--danger)">Focus: Protected</span>
-                    <img id="gradcamPoisonImg" alt="Poisoned Heatmap">
+
+                <div class="section-label mono-tiny-upper" style="justify-content: center">Visual Comparison</div>
+                <div class="results-grid" style="margin-bottom:3rem;">
+                    <div class="image-box">
+                        <span class="image-label" style="color:var(--accent-gold)">Original</span>
+                        <img id="originalImg" src="">
+                    </div>
+                    <div class="image-box">
+                        <span class="image-label" style="color:var(--accent-green)">Protected</span>
+                        <img id="poisonedImg" src="">
+                    </div>
+                </div>
+
+                <div class="section-label mono-tiny-upper" style="justify-content: center">Attention Shift (Grad-CAM)</div>
+                <p class="mono-small" style="margin-bottom:1.5rem; text-align:center;">Heatmaps reveal where the AI focuses. The protected image forces the AI to look at irrelevant background noise.</p>
+                <div class="results-grid" style="margin-bottom:3rem;">
+                    <div class="image-box">
+                        <span class="image-label" style="color:var(--accent-gold)">Focus: Original</span>
+                        <img id="gradcamOrigImg" src="">
+                    </div>
+                    <div class="image-box">
+                        <span class="image-label" style="color:var(--accent-rose)">Focus: Protected</span>
+                        <img id="gradcamPoisonImg" src="">
+                    </div>
+                </div>
+
+                <div class="section-label mono-tiny-upper" style="justify-content: center">Live AI Predictions</div>
+                <div class="results-grid">
+                    <div class="metric-block">
+                        <div class="mono-tiny-upper" style="margin-bottom:1rem; color:var(--accent-gold);">Before Protection</div>
+                        <div id="origPredsList"></div>
+                    </div>
+                    <div class="metric-block">
+                        <div class="mono-tiny-upper" style="margin-bottom:1rem; color:var(--accent-rose);">After Protection</div>
+                        <div id="poisonedPredsList"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 3rem; display:flex; gap:1rem;">
+                    <button class="btn btn-primary interactive" id="downloadBtn" style="flex:2;">Download Protected Image</button>
+                    <button class="btn btn-ghost interactive" id="resetBtn" style="flex:1;">Protect Another</button>
                 </div>
             </div>
 
-            <div class="actions-row">
-                <button class="btn-primary" id="downloadBtn" style="width: auto;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Download Protected Image
-                </button>
+            <!-- Batch Processing -->
+            <div class="batch-section">
+                <h2 class="font-head" style="font-size:2.5rem; margin-bottom:1rem;">Batch Processing</h2>
+                <div class="dropzone interactive" id="batchDrop">
+                    <div class="corner corner-tl"></div>
+                    <div class="corner corner-tr"></div>
+                    <div class="corner corner-bl"></div>
+                    <div class="corner corner-br"></div>
+                    <div class="mono-small" id="batchInfoText">Upload .zip archive (Max 100 images)</div>
+                    <button class="btn btn-ghost interactive" id="batchBtn" style="margin-top:1.5rem;" disabled>Process Batch</button>
+                    <input type="file" id="batchInput" class="hidden" accept=".zip">
+                </div>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div class="toast" id="errorToast">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        <span id="errorMsg">Error</span>
-    </div>
+    <section id="manifesto">
+        <div class="container fade-up">
+            <div class="section-label mono-tiny-upper tw-trigger" style="justify-content: center"><span class="tw-text" data-text="04 manifesto"></span></div>
+            <h2 class="manifesto-quote font-head italic">
+                Art is a <strong class="italic-gold">decision</strong>. It is <strong class="italic-gold">doubt</strong>. It is <strong class="italic-gold">devotion</strong>. It cannot be mathematically approximated. <strong class="italic-gold" style="font-style: normal;">We are not anti-technology. We are pro-human.</strong>
+            </h2>
+            <div class="mono-tiny-upper">— The Artists With Souls Collective</div>
+        </div>
+    </section>
+
+    <section id="faq" class="bg-alt">
+        <div class="container">
+            <div class="section-label mono-tiny-upper tw-trigger"><span class="tw-text" data-text="05 faq"></span></div>
+            <div class="faq-grid">
+                <div class="faq-card fade-up">
+                    <h3 class="faq-q font-head">Does this ruin the image quality?</h3>
+                    <p class="mono-small">No. The perturbation is calculated to be imperceptible to the human visual system, operating at high frequencies that blend into normal pixel variations.</p>
+                </div>
+                <div class="faq-card fade-up" style="transition-delay: 0.2s">
+                    <h3 class="faq-q font-head">Are my images sent to your server?</h3>
+                    <p class="mono-small">Yes, images are sent to our GPU servers to compute the complex PyTorch adversarial gradients. However, images are processed securely in-memory and deleted immediately.</p>
+                </div>
+                <div class="faq-card fade-up">
+                    <h3 class="faq-q font-head">Which models does this block?</h3>
+                    <p class="mono-small">It creates noisy gradients that disrupt standard convolutional architectures (like those used in Stable Diffusion training pipelines) and breaks feature matching.</p>
+                </div>
+                <div class="faq-card fade-up" style="transition-delay: 0.2s">
+                    <h3 class="faq-q font-head">Is it 100% foolproof?</h3>
+                    <p class="mono-small">AI models constantly evolve. This is an adversarial arms race. Our perturbations significantly degrade training value, but nothing is a perfect shield forever.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="logo font-head bold" style="font-size: 1.2rem;">Artists <span class="italic-ember">With</span> Souls</div>
+        <div class="footer-credit mono-tiny-upper">Built for humans.</div>
+        <div class="footer-links mono-tiny-upper">
+            <a href="#problem" class="interactive">problem</a>
+            <a href="#how" class="interactive">how</a>
+            <a href="#protect" class="interactive">protect</a>
+        </div>
+    </footer>
 
     <script>
-        // DOM Elements
-        const DOM = {
-            uploadZone: document.getElementById('uploadZone'),
-            fileInput: document.getElementById('fileInput'),
-            fileName: document.getElementById('fileName'),
-            fileSize: document.getElementById('fileSize'),
-            fileRemove: document.getElementById('fileRemove'),
-            slider: document.getElementById('epsilonSlider'),
-            epsValue: document.getElementById('epsilonValue'),
-            badge: document.getElementById('qualityBadge'),
-            poisonBtn: document.getElementById('poisonBtn'),
-            results: document.getElementById('results'),
-            toast: document.getElementById('errorToast'),
-            toastMsg: document.getElementById('errorMsg'),
-            progWrap: document.getElementById('progressWrap'),
-            progFill: document.getElementById('progressFill'),
-            progLbl: document.getElementById('progressLabel'),
-            progPct: document.getElementById('progressPct'),
-            secBadges: document.getElementById('securityBadges'),
-            modeBadge: document.getElementById('modeBadge'),
-            cameraBtn: document.getElementById('cameraBtn'),
-            attackMode: document.getElementById('attackMode'),
-            targetClass: document.getElementById('targetClass'),
-            watermarkText: document.getElementById('watermarkText'),
-            origPredsList: document.getElementById('origPredsList'),
-            poisonedPredsList: document.getElementById('poisonedPredsList'),
+        // --- Custom Cursor ---
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX; mouseY = e.clientY;
             
-            // Batch
-            batchDrop: document.getElementById('batchDrop'),
-            batchInput: document.getElementById('batchFileInput'),
-            batchBtn: document.getElementById('batchBtn'),
-            batchInfoWrap: document.getElementById('batchFileInfoWrap'),
-            batchInfo: document.getElementById('batchFileInfo'),
-            batchPlace: document.getElementById('batchPlaceholder')
-        };
-
-        let selectedFile = null;
-
-        // --- Core UI Helpers ---
-        const formatSize = bytes => (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-        
-        const showError = msg => {
-            DOM.toastMsg.textContent = msg;
-            DOM.toast.classList.add('show');
-            setTimeout(() => DOM.toast.classList.remove('show'), 4000);
-        };
-
-        const setProgress = (pct, label) => {
-            DOM.progWrap.classList.add('visible');
-            DOM.progFill.style.width = `${pct}%`;
-            DOM.progLbl.textContent = label;
-            DOM.progPct.textContent = `${pct}%`;
-        };
-        
-        const hideProgress = () => DOM.progWrap.classList.remove('visible');
-
-        // --- Single Upload Logic ---
-        const handleFile = file => {
-            if (!file.type.startsWith('image/')) return showError('Invalid file type. Image required.');
-            selectedFile = file;
-            DOM.fileName.textContent = file.name;
-            DOM.fileSize.textContent = formatSize(file.size);
-            DOM.uploadZone.classList.add('has-file');
-            DOM.poisonBtn.disabled = false;
-        };
-
-        DOM.uploadZone.addEventListener('click', e => { if (e.target !== DOM.fileRemove) DOM.fileInput.click(); });
-        DOM.uploadZone.addEventListener('dragover', e => { e.preventDefault(); DOM.uploadZone.classList.add('dragover'); });
-        DOM.uploadZone.addEventListener('dragleave', () => DOM.uploadZone.classList.remove('dragover'));
-        DOM.uploadZone.addEventListener('drop', e => {
-            e.preventDefault(); DOM.uploadZone.classList.remove('dragover');
-            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-        });
-        
-        DOM.fileInput.addEventListener('change', () => {
-            if (DOM.fileInput.files.length) handleFile(DOM.fileInput.files[0]);
-        });
-        
-        DOM.fileRemove.addEventListener('click', e => {
-            e.stopPropagation();
-            selectedFile = null;
-            DOM.uploadZone.classList.remove('has-file');
-            DOM.fileInput.value = '';
-            DOM.poisonBtn.disabled = true;
+            const now = Date.now();
+            if (now - lastTrailTime > 30) { createTrail(mouseX, mouseY); lastTrailTime = now; }
         });
 
-        DOM.cameraBtn.addEventListener('click', async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const video = document.createElement('video');
-                video.srcObject = stream;
-                await video.play();
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                
-                stream.getTracks().forEach(t => t.stop());
-                
-                canvas.toBlob(blob => {
-                    const file = new File([blob], "camera_capture.png", { type: "image/png" });
-                    handleFile(file);
-                }, 'image/png');
-            } catch (err) {
-                showError("Camera access denied.");
+
+
+        function createTrail(x, y) {
+            const trail = document.createElement('div'); trail.className = 'cursor-trail';
+            trail.style.left = x + 'px'; trail.style.top = y + 'px';
+            const size = Math.random() * 4 + 2; trail.style.width = size + 'px'; trail.style.height = size + 'px';
+            const colors = ['#FF6B35', '#FFD97D']; trail.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            document.body.appendChild(trail); setTimeout(() => trail.remove(), 500);
+        }
+
+        // --- Hero Parallax ---
+        const heroContent = document.querySelector('.hero-content');
+        let lastScrollY = window.scrollY; let ticking = false;
+        window.addEventListener('scroll', () => {
+            lastScrollY = window.scrollY;
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    heroContent.style.transform = `translateY(${-(lastScrollY * 0.4)}px)`;
+                    ticking = false;
+                });
+                ticking = true;
             }
         });
 
-        // --- Slider Logic ---
-        const updateSlider = () => {
-            const v = parseFloat(DOM.slider.value);
-            DOM.epsValue.textContent = v.toFixed(3);
-            
-            let cls, text;
-            if (v <= 0.007)      { cls = 'badge-invisible'; text = '~46 dB PSNR'; }
-            else if (v <= 0.015) { cls = 'badge-good'; text = '~40 dB PSNR'; }
-            else if (v <= 0.030) { cls = 'badge-moderate'; text = '~34 dB PSNR'; }
-            else                 { cls = 'badge-aggressive'; text = '~28 dB PSNR'; }
-            
-            DOM.badge.className = `badge ${cls}`;
-            DOM.badge.textContent = text;
-        };
-        
-        DOM.slider.addEventListener('input', updateSlider);
-        updateSlider();
-        
-        document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                DOM.slider.value = btn.dataset.val;
-                updateSlider();
+        // --- Hero Typewriter ---
+        const lines = [
+            { text: "Your art.\n", speed: 80, class: "" },
+            { text: "Your soul.\n", speed: 70, class: "italic-gold", delay: 400 },
+            { text: "Unmachined.", speed: 60, class: "bold", delay: 400 }
+        ];
+        const twEl = document.getElementById('heroTypeWriter');
+        const cursorEl = document.querySelector('.cursor-blink');
+        let lineIdx = 0; let charIdx = 0;
+
+        function typeWriter() {
+            if (lineIdx < lines.length) {
+                const line = lines[lineIdx];
+                if (charIdx === 0 && line.delay) { setTimeout(() => doType(line), line.delay); } 
+                else { doType(line); }
+            } else { cursorEl.style.display = 'none'; }
+        }
+        function doType(line) {
+            if (charIdx < line.text.length) {
+                const char = line.text.charAt(charIdx);
+                if (char === '\n') { twEl.appendChild(document.createElement('br')); } 
+                else {
+                    let span = document.createElement('span'); span.textContent = char;
+                    if (line.class) span.className = line.class;
+                    if (line.class === 'bold') span.style.fontWeight = '600'; 
+                    twEl.appendChild(span);
+                }
+                charIdx++; setTimeout(typeWriter, line.speed);
+            } else { lineIdx++; charIdx = 0; typeWriter(); }
+        }
+        setTimeout(typeWriter, 500);
+
+        // --- Typewriter Labels & Stat Counters ---
+        function typeLabel(el) {
+            el.style.visibility = 'visible';
+            const span = el.querySelector('.tw-text'); const text = span.dataset.text; span.textContent = '';
+            let i = 0;
+            function type() { if (i < text.length) { span.textContent += text.charAt(i); i++; setTimeout(type, 45); } }
+            type();
+        }
+
+        function easeOutQuart(x) { return 1 - Math.pow(1 - x, 4); }
+        function countUp(el) {
+            const target = parseFloat(el.dataset.target); const suffix = el.dataset.suffix || ''; const duration = 1200; let start = null;
+            function step(timestamp) {
+                if (!start) start = timestamp;
+                const progress = Math.min((timestamp - start) / duration, 1);
+                const val = target * easeOutQuart(progress);
+                if (target % 1 === 0) el.textContent = Math.floor(val) + suffix;
+                else el.textContent = val.toFixed(1) + suffix;
+                if (progress < 1) requestAnimationFrame(step);
+                else el.textContent = target + suffix;
+            }
+            requestAnimationFrame(step);
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    if (entry.target.classList.contains('fade-up')) entry.target.classList.add('visible');
+                    if (entry.target.classList.contains('tw-trigger') && !entry.target.dataset.typed) {
+                        entry.target.dataset.typed = 'true'; typeLabel(entry.target);
+                    }
+                    if (entry.target.classList.contains('stat-trigger') && !entry.target.dataset.counted) {
+                        entry.target.dataset.counted = 'true'; countUp(entry.target);
+                    }
+                }
             });
+        }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+        document.querySelectorAll('.fade-up, .tw-trigger, .stat-trigger').forEach(el => observer.observe(el));
+
+        // --- Background Blobs & Paint ---
+        const bgCanvas = document.getElementById('bgCanvas'); const bgCtx = bgCanvas.getContext('2d');
+        const paintCanvas = document.getElementById('paintCanvas'); const pCtx = paintCanvas.getContext('2d');
+        const dripCanvas = document.getElementById('dripCanvas'); const dCtx = dripCanvas.getContext('2d');
+        
+        const blobColors = ['#FF9F1C', '#FFBA08', '#F72585', '#FF8C42', '#FF4E6A', '#FF6B35'];
+        let drips = [];
+        let isPainting = false; let lastX = 0; let lastY = 0; let paintColor = '#FF6B35'; let particles = [];
+
+        function resizeCanvas() {
+            bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight;
+            paintCanvas.width = window.innerWidth; paintCanvas.height = window.innerHeight;
+            dripCanvas.width = window.innerWidth; dripCanvas.height = 100;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function hexToRgb(hex) {
+            const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : {r:0,g:0,b:0};
+        }
+
+        function initDrips() {
+            drips = []; const numDrips = Math.floor(Math.random() * 5) + 8;
+            for(let i=0; i<numDrips; i++) {
+                drips.push({
+                    x: Math.random() * window.innerWidth,
+                    baseW: Math.random() * 12 + 6, baseL: Math.random() * 40 + 20,
+                    color: blobColors[Math.floor(Math.random() * blobColors.length)],
+                    phase: Math.random() * Math.PI * 2, speed: Math.random() * 0.02 + 0.01
+                });
+            }
+        }
+
+        function renderDrips() {
+            dCtx.clearRect(0, 0, dripCanvas.width, dripCanvas.height);
+            drips.forEach(d => {
+                d.phase += d.speed; const curL = d.baseL + Math.sin(d.phase) * (d.baseL * 0.3);
+                dCtx.shadowBlur = 10; dCtx.shadowColor = d.color;
+                dCtx.beginPath(); dCtx.moveTo(d.x - d.baseW/2, 0);
+                dCtx.bezierCurveTo(d.x - d.baseW/2, curL * 0.5, d.x - d.baseW/4, curL, d.x, curL);
+                dCtx.bezierCurveTo(d.x + d.baseW/4, curL, d.x + d.baseW/2, curL * 0.5, d.x + d.baseW/2, 0);
+                dCtx.fillStyle = d.color; dCtx.fill(); dCtx.shadowBlur = 0;
+            });
+        }
+
+        function renderBg() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            
+            pCtx.globalCompositeOperation = 'destination-out';
+            pCtx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+            pCtx.fillRect(0, 0, paintCanvas.width, paintCanvas.height);
+            pCtx.globalCompositeOperation = 'source-over';
+
+            renderDrips();
+            requestAnimationFrame(renderBg);
+        }
+
+        paintCanvas.addEventListener('mousedown', (e) => { isPainting = true; lastX = e.clientX; lastY = e.clientY; paintColor = blobColors[Math.floor(Math.random() * blobColors.length)]; });
+        paintCanvas.addEventListener('mousemove', (e) => {
+            if (!isPainting) return;
+            const rgb = hexToRgb(paintColor);
+            const layers = [{ w: 40, a: 0.05 }, { w: 25, a: 0.1 }, { w: 10, a: 0.3 }, { w: 3, a: 0.8 }];
+            layers.forEach(l => {
+                pCtx.beginPath(); pCtx.moveTo(lastX, lastY); pCtx.lineTo(e.clientX, e.clientY);
+                pCtx.lineWidth = l.w; pCtx.lineCap = 'round'; pCtx.lineJoin = 'round';
+                pCtx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${l.a})`; pCtx.stroke();
+            });
+            lastX = e.clientX; lastY = e.clientY;
+            if (Math.random() > 0.5) particles.push({ x: e.clientX, y: e.clientY, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8 - 2, life: 1, decay: Math.random() * 0.05 + 0.02, color: paintColor });
+        });
+        paintCanvas.addEventListener('mouseup', () => isPainting = false);
+        paintCanvas.addEventListener('mouseleave', () => isPainting = false);
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i]; p.vy += 0.2; p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+                if (p.life <= 0) particles.splice(i, 1);
+                else {
+                    pCtx.beginPath(); pCtx.arc(p.x, p.y, p.life * 3, 0, Math.PI * 2);
+                    const rgb = hexToRgb(p.color); pCtx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${p.life})`; pCtx.fill();
+                }
+            }
+            requestAnimationFrame(updateParticles);
+        }
+
+        resizeCanvas();
+        
+        initDrips(); renderBg(); updateParticles();
+
+        // --- Problem Cycling Panels ---
+        function drawMockArt(canvasId, type) {
+            const canvas = document.getElementById(canvasId); const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * 2; canvas.height = rect.height * 2; ctx.scale(2, 2);
+            const w = rect.width; const h = rect.height; ctx.clearRect(0, 0, w, h);
+            
+            if (type === 'Original') {
+                ctx.fillStyle = '#2A0A05'; ctx.fillRect(0,0,w,h);
+                for(let i=0; i<15; i++) {
+                    ctx.beginPath(); ctx.arc(Math.random()*w, Math.random()*h, Math.random()*40+10, 0, Math.PI*2);
+                    ctx.fillStyle = blobColors[Math.floor(Math.random()*blobColors.length)] + (Math.floor(Math.random()*50+50)).toString(16); ctx.fill();
+                }
+            } else if (type === 'AI') {
+                ctx.fillStyle = '#111827'; ctx.fillRect(0,0,w,h);
+                ctx.strokeStyle = '#374151'; ctx.lineWidth = 1;
+                for(let x=0; x<w; x+=20) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+                for(let y=0; y<h; y+=20) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+                for(let i=0; i<5; i++) { ctx.fillStyle = '#9CA3AF'; ctx.fillRect(Math.random()*w, Math.random()*h, Math.random()*w/2, Math.random()*5+1); }
+            } else if (type === 'Protected') {
+                ctx.fillStyle = '#062612'; ctx.fillRect(0,0,w,h); ctx.font = '10px monospace'; ctx.fillStyle = '#4CAF82';
+                for(let i=0; i<50; i++) {
+                    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*"; let str = "";
+                    for(let j=0; j<8; j++) str += chars.charAt(Math.floor(Math.random()*chars.length));
+                    ctx.fillText(str, Math.random()*w, Math.random()*h);
+                }
+                const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+                for(let i=0; i<imgData.data.length; i+=4) if(Math.random() > 0.8) imgData.data[i+1] = Math.min(255, imgData.data[i+1] + Math.random()*100);
+                ctx.putImageData(imgData, 0, 0);
+            }
+        }
+        function cyclePanels() { drawMockArt('panelOriginal', 'Original'); drawMockArt('panelAI', 'AI'); drawMockArt('panelProtected', 'Protected'); }
+        setTimeout(() => { cyclePanels(); setInterval(cyclePanels, 2000); }, 500);
+
+        // --- Backend Integration: Single Image ---
+        const dropzone = document.getElementById('dropzone'); const fileInput = document.getElementById('fileInput'); const fileBtn = document.getElementById('fileBtn');
+        const uiUpload = document.getElementById('upload-ui'); const uiProgress = document.getElementById('progress-ui'); const uiResults = document.getElementById('results-ui');
+        const progBar = document.getElementById('progress-bar'); const pctText = document.getElementById('pct-text'); const statusText = document.getElementById('status-text');
+        const poisonBtn = document.getElementById('poisonBtn'); const epsSlider = document.getElementById('epsilonSlider'); const epsValue = document.getElementById('epsilonValue');
+        let loadedFile = null; let downloadUrl = null;
+
+        epsSlider.addEventListener('input', () => epsValue.innerText = parseFloat(epsSlider.value).toFixed(3));
+        document.querySelectorAll('.preset-btn').forEach(btn => { btn.addEventListener('click', () => { epsSlider.value = btn.dataset.val; epsValue.innerText = parseFloat(epsSlider.value).toFixed(3); }); });
+
+        fileBtn.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragover'); if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]); });
+        fileInput.addEventListener('change', () => { if (fileInput.files.length) setFile(fileInput.files[0]); });
+
+        function setFile(file) {
+            if (!file.type.startsWith('image/')) return alert('Image required.');
+            loadedFile = file; document.querySelector('#upload-ui h3').innerText = file.name; poisonBtn.disabled = false;
+        }
+
+        poisonBtn.addEventListener('click', async () => {
+            if (!loadedFile) return;
+            uiUpload.style.display = 'none'; uiResults.style.display = 'none'; uiProgress.style.display = 'block'; poisonBtn.disabled = true;
+            const fd = new FormData(); fd.append('image', loadedFile); fd.append('epsilon', epsSlider.value);
+            fd.append('attack_mode', document.getElementById('attackMode').value); fd.append('target_class', document.getElementById('targetClass').value); fd.append('watermark', document.getElementById('watermarkText').value);
+            progBar.style.width = '10%'; pctText.innerText = '10%'; statusText.innerText = 'Uploading to GPU...';
+
+            try {
+                const res = await fetch('/poison', { method: 'POST', body: fd }); const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Engine failure');
+                if (data.task_id) { const result = await pollTask(data.task_id); renderResult(result); } 
+                else { renderResult(data); }
+            } catch (err) { alert('Error: ' + err.message); uiProgress.style.display = 'none'; uiUpload.style.display = 'block'; poisonBtn.disabled = false; }
         });
 
-        // --- Processing Logic ---
-        async function pollTask(taskId) {
-            setProgress(10, 'Queued on worker...');
+        function pollTask(taskId) {
             return new Promise((resolve, reject) => {
                 const interval = setInterval(async () => {
                     try {
-                        const r = await fetch(`/status/${taskId}`);
-                        const d = await r.json();
-                        
+                        const r = await fetch(`/status/${taskId}`); const d = await r.json();
                         if (d.state === 'PROGRESS' || d.state === 'STARTED') {
-                            setProgress(d.progress || 30, 'Computing gradients...');
+                            progBar.style.width = (d.progress || 30) + '%'; pctText.innerText = (d.progress || 30) + '%'; statusText.innerText = 'Computing adversarial gradients...';
                         } else if (d.state === 'SUCCESS') {
-                            clearInterval(interval);
-                            setProgress(100, 'Complete');
-                            setTimeout(hideProgress, 500);
-                            resolve(d.result);
-                        } else if (d.state === 'FAILURE') {
-                            clearInterval(interval);
-                            hideProgress();
-                            reject(new Error(d.error || 'Worker failed'));
-                        }
-                    } catch (e) {
-                        clearInterval(interval);
-                        hideProgress();
-                        reject(e);
-                    }
+                            clearInterval(interval); progBar.style.width = '100%'; pctText.innerText = '100%'; statusText.innerText = 'Finalizing...'; setTimeout(() => resolve(d.result), 500);
+                        } else if (d.state === 'FAILURE') { clearInterval(interval); reject(new Error(d.error || 'Worker failed')); }
+                    } catch (e) { clearInterval(interval); reject(e); }
                 }, 1000);
             });
         }
 
-        let downloadUrl = null;
-
-        const renderResult = data => {
-            document.getElementById('originalImg').src = data.original;
-            document.getElementById('poisonedImg').src = data.poisoned;
-            document.getElementById('gradcamOrigImg').src = data.gradcam_original;
-            document.getElementById('gradcamPoisonImg').src = data.gradcam_poisoned;
+        function renderResult(data) {
+            uiProgress.style.display = 'none'; uiResults.style.display = 'block'; poisonBtn.disabled = false;
+            document.getElementById('originalImg').src = data.original; document.getElementById('poisonedImg').src = data.poisoned;
+            document.getElementById('gradcamOrigImg').src = data.gradcam_original; document.getElementById('gradcamPoisonImg').src = data.gradcam_poisoned;
             downloadUrl = data.poisoned_download || data.poisoned;
-            
-            const renderPreds = (preds, container, isPoisoned) => {
-                container.innerHTML = preds.map(p => `
-                    <div class="pred-row">
-                        <span>${p.label}</span>
-                        <span class="mono">${p.confidence}%</span>
-                    </div>
-                    <div class="pred-bar" style="width: ${p.confidence}%; background: ${isPoisoned ? 'var(--danger)' : 'var(--success)'};"></div>
-                `).join('');
+            document.getElementById('metricPsnr').innerText = data.psnr + ' dB'; document.getElementById('metricEps').innerText = parseFloat(data.epsilon).toFixed(3); document.getElementById('metricRes').innerText = `${data.width}x${data.height}`;
+
+            const renderPreds = (preds, containerId, isPoisoned) => {
+                const html = preds.map(p => `<div class="pred-row"><span class="mono-small">${p.label}</span><span class="mono-small">${p.confidence}%</span></div><div class="pred-bar-bg"><div class="pred-bar-fill ${isPoisoned ? 'danger' : ''}" style="width: ${p.confidence}%"></div></div>`).join('');
+                document.getElementById(containerId).innerHTML = html;
             };
-            
-            renderPreds(data.orig_preds, DOM.origPredsList, false);
-            renderPreds(data.poisoned_preds, DOM.poisonedPredsList, true);
-            
-            const psnrEl = document.getElementById('metricPsnr');
-            psnrEl.textContent = `${data.psnr} dB`;
-            psnrEl.className = `metric-value ${data.psnr >= 38 ? 'text-success' : data.psnr >= 28 ? 'text-warning' : 'text-danger'}`;
-            
-            document.getElementById('metricEps').textContent = parseFloat(data.epsilon).toFixed(3);
-            document.getElementById('metricRes').textContent = `${data.width} × ${data.height}`;
-            
-            DOM.results.classList.add('visible');
-            DOM.secBadges.style.display = 'flex';
-        };
+            renderPreds(data.orig_preds, 'origPredsList', false); renderPreds(data.poisoned_preds, 'poisonedPredsList', true);
+            document.getElementById('downloadBtn').onclick = () => { const a = document.createElement('a'); a.href = downloadUrl; a.download = 'AWS-Protected.png'; a.click(); };
+        }
 
-        DOM.poisonBtn.addEventListener('click', async () => {
-            if (!selectedFile) return;
-            
-            DOM.poisonBtn.classList.add('loading');
-            DOM.poisonBtn.disabled = true;
-            DOM.results.classList.remove('visible');
-            DOM.secBadges.style.display = 'none';
-            setProgress(5, 'Uploading tensor...');
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            uiResults.style.display = 'none'; uiUpload.style.display = 'block'; fileInput.value = ''; loadedFile = null; document.querySelector('#upload-ui h3').innerText = 'Select Canvas'; poisonBtn.disabled = true;
+        });
 
-            const fd = new FormData();
-            fd.append('image', selectedFile);
-            fd.append('epsilon', DOM.slider.value);
-            fd.append('attack_mode', DOM.attackMode.value);
-            fd.append('target_class', DOM.targetClass.value);
-            fd.append('watermark', DOM.watermarkText.value);
+        // --- Backend Integration: Batch ---
+        const batchDrop = document.getElementById('batchDrop'); const batchInput = document.getElementById('batchInput'); const batchBtn = document.getElementById('batchBtn'); const batchInfoText = document.getElementById('batchInfoText'); let batchFile = null;
+        batchDrop.addEventListener('click', () => batchInput.click());
+        batchDrop.addEventListener('dragover', e => { e.preventDefault(); batchDrop.classList.add('dragover'); });
+        batchDrop.addEventListener('dragleave', () => batchDrop.classList.remove('dragover'));
+        batchDrop.addEventListener('drop', e => { e.preventDefault(); batchDrop.classList.remove('dragover'); if (e.dataTransfer.files.length) setBatch(e.dataTransfer.files[0]); });
+        batchInput.addEventListener('change', () => { if (batchInput.files.length) setBatch(batchInput.files[0]); });
 
+        function setBatch(file) {
+            if (!file.name.endsWith('.zip')) return alert('ZIP archive required.');
+            batchFile = file; batchInfoText.innerText = file.name; batchBtn.disabled = false;
+        }
+
+        batchBtn.addEventListener('click', async () => {
+            if (!batchFile) return; batchBtn.innerHTML = 'Processing... <div class="spinner"></div>'; batchBtn.disabled = true;
+            const fd = new FormData(); fd.append('archive', batchFile); fd.append('epsilon', epsSlider.value);
             try {
-                const res = await fetch('/poison', { method: 'POST', body: fd });
-                const data = await res.json();
-                
-                if (!res.ok) throw new Error(data.error || 'Engine failure');
-
-                if (data.task_id) {
-                    DOM.modeBadge.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> Async Queue';
-                    const result = await pollTask(data.task_id);
-                    renderResult(result);
-                } else {
-                    DOM.modeBadge.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Sync Mode';
-                    hideProgress();
-                    renderResult(data);
-                }
-            } catch (err) {
-                hideProgress();
-                showError(err.message);
-            } finally {
-                DOM.poisonBtn.classList.remove('loading');
-                DOM.poisonBtn.disabled = false;
-            }
-        });
-
-        // --- Batch ZIP Logic ---
-        let batchFile = null;
-
-        const setBatchFile = file => {
-            if (!file.name.endsWith('.zip')) return showError('Archive must be a .zip');
-            batchFile = file;
-            DOM.batchPlace.style.display = 'none';
-            DOM.batchInfoWrap.style.display = 'flex';
-            DOM.batchInfo.textContent = `${file.name} (${formatSize(file.size)})`;
-            DOM.batchDrop.classList.add('has-file');
-            DOM.batchBtn.disabled = false;
-        };
-
-        DOM.batchDrop.addEventListener('click', () => DOM.batchInput.click());
-        DOM.batchDrop.addEventListener('dragover', e => { e.preventDefault(); DOM.batchDrop.style.borderColor = 'var(--fg-muted)'; });
-        DOM.batchDrop.addEventListener('dragleave', () => DOM.batchDrop.style.borderColor = '');
-        DOM.batchDrop.addEventListener('drop', e => {
-            e.preventDefault(); DOM.batchDrop.style.borderColor = '';
-            if (e.dataTransfer.files.length) setBatchFile(e.dataTransfer.files[0]);
-        });
-        DOM.batchInput.addEventListener('change', () => {
-            if (DOM.batchInput.files.length) setBatchFile(DOM.batchInput.files[0]);
-        });
-
-        DOM.batchBtn.addEventListener('click', async () => {
-            if (!batchFile) return;
-            
-            DOM.batchBtn.classList.add('loading');
-            DOM.batchBtn.disabled = true;
-            setProgress(5, 'Uploading archive...');
-            
-            const fd = new FormData();
-            fd.append('archive', batchFile);
-            fd.append('epsilon', DOM.slider.value);
-            
-            try {
-                setProgress(30, 'Engine running...');
                 const res = await fetch('/poison/batch', { method: 'POST', body: fd });
-                
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || 'Batch processing failed');
-                }
-                
-                setProgress(90, 'Packaging payload...');
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'poison_batch_output.zip';
-                a.click();
-                URL.revokeObjectURL(url);
-                
-                setProgress(100, 'Downloaded');
-                setTimeout(hideProgress, 1000);
-            } catch (err) {
-                hideProgress();
-                showError(err.message);
-            } finally {
-                DOM.batchBtn.classList.remove('loading');
-                DOM.batchBtn.disabled = false;
-            }
-        });
-
-        // --- Download Action ---
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-            const src = downloadUrl || document.getElementById('poisonedImg').src;
-            if (!src) return;
-            const a = document.createElement('a');
-            a.href = src;
-            a.download = 'poisoned_image.png';
-            a.click();
+                if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Batch failed'); }
+                const blob = await res.blob(); const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'AWS-Protected-Batch.zip'; a.click();
+                URL.revokeObjectURL(url); batchBtn.innerHTML = 'Downloaded!';
+            } catch (err) { alert('Error: ' + err.message); batchBtn.innerHTML = 'Process Batch'; } 
+            finally { setTimeout(() => { batchBtn.disabled = false; batchBtn.innerHTML = 'Process Batch'; }, 2000); }
         });
     </script>
 </body>
