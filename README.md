@@ -1,224 +1,132 @@
 # Artists With Souls (AWS)
 
-Protecting creative work in the age of generative AI.
+Adversarial perturbation tool that makes artwork unreliable input for the vision models behind scraping and generative-AI training, while keeping the change below what a viewer notices. Built by a team at GDGHacks 2026 (University of Guelph). [Devpost](https://devpost.com/software/artists-with-souls)
 
-Artists With Souls (AWS) is a local-first adversarial image protection tool built for artists who want more control over how their work is used online. AWS applies carefully generated perturbations to artwork that are nearly invisible to humans, but disruptive to computer vision systems commonly used in large-scale scraping and AI training pipelines.
+Pipeline: an L∞-bounded FGSM or PGD perturbation against a pretrained ResNet-50 surrogate, computed at reduced resolution and applied at full resolution, with Grad-CAM and top-3 predictions before and after as evidence the model's reading changed. It ships as a Flask service with a Celery/Redis job path and as a standalone CLI.
 
-Instead of focusing on watermarking alone, AWS treats protection as an adversarial machine learning problem — using the same techniques that expose weaknesses in neural networks to help creators defend their work.
+## Attacks
 
----
+Both attacks run in pixel space `x ∈ [0,1]`. ImageNet mean/std normalization happens inside the forward pass, so `ε` is measured in raw pixel units.
 
-# Inspiration
+**FGSM** (`fgsm_attack`), one step:
 
-As AI models continue to evolve, the line between inspiration and scraping has become increasingly blurred. Many creators feel that the essence of their work is being absorbed into massive training datasets without permission or attribution.
-
-Artists With Souls (AWS) was created as a form of digital self-defense — a way for artists to protect their visual identity and retain control over how their work is used online.
-
----
-
-# How It Works
-
-## Adversarial Protection Pipeline
-
-At the core of AWS is an adversarial machine learning pipeline designed to disrupt computer vision models commonly used for large-scale image scraping and dataset generation.
-
-AWS uses a pre-trained ResNet-50 model as a proxy for modern vision architectures and computes the gradient of the model’s loss with respect to the input image.
-
-Two attack methods are currently implemented:
-
-### FGSM (Fast Gradient Sign Method)
-
-A fast single-step perturbation method optimized for speed and lightweight processing.
-
-### PGD (Projected Gradient Descent)
-
-A stronger iterative attack that remains more resilient after compression, resizing, or minor image transformations.
-
-The perturbation process follows the adversarial formulation:
-
-```math
-x_{adv} = \text{Clip}_{x,\epsilon}\left\{x + \epsilon \cdot \text{sign}(\nabla_x L(\theta, x, y))\right\}
+```
+untargeted:  x' = clip[0,1]( x + ε · sign(∇x L(f(x), ŷ)) ),   ŷ = argmax f(x)
+targeted:    x' = clip[0,1]( x − ε · sign(∇x L(f(x), t)) )
 ```
 
-The generated perturbations are nearly imperceptible to the human eye but significantly interfere with how neural networks interpret the image.
+**PGD** (`pgd_attack`), iterative with projection:
 
----
+```
+x₀ = x
+x_{k+1} = clip[0,1]( x + clip[−ε,ε]( x_k ± α · sign(∇x L) − x ) )
+```
 
-## Grad-CAM Visualization
+10 iterations, step size `α = 2ε / 10`. The prediction `ŷ` is fixed from the clean image before the first step. Each iterate is projected back into the ε-ball around the original, which makes PGD the stronger of the two at equal `ε`.
 
-AWS integrates Grad-CAM (Gradient-weighted Class Activation Mapping) to visualize how a model’s attention changes before and after protection is applied.
+`L` is cross-entropy. The surrogate is `torchvision.models.resnet50` with `IMAGENET1K_V1` weights, in eval mode, loaded once per process.
 
-In many cases, the model’s focus shifts away from the primary subject toward irrelevant regions after perturbation, demonstrating how the protection disrupts feature recognition.
+## Resolution strategy
 
----
+The attack and both Grad-CAM passes run on a copy downscaled to a 512 px long side. The perturbation is then transferred to the original:
 
-# Performance Optimizations
+```
+δ_small = x'_small − x_small
+δ_full  = bilinear_upsample(δ_small, size = original)
+x'_full = clip[0,1]( x_full + δ_full )
+```
 
-Early versions of AWS processed full-resolution images directly, resulting in extremely slow runtimes on CPU hardware.
+This cut end-to-end processing time by more than 90% compared with attacking at full resolution on CPU. Every stage is timed with `perf_counter` and returned in the response as `timings`: tensor conversion, resize, predictions, attack, upscale, PSNR, Grad-CAM and base64 encoding.
 
-To solve this, the adversarial pipeline was redesigned around a lower-resolution attack pass:
+## Perturbation budget
 
-- Perturbations are generated on a downscaled 512px tensor
-- Noise is then upscaled and blended back into the original image
-- All processing occurs entirely in memory to avoid unnecessary disk I/O
+PSNR is computed at full resolution as `10 · log10(1 / MSE)`.
 
-This reduced processing time by over 90% while maintaining strong adversarial effectiveness.
+| Preset | ε | Approx. PSNR |
+|:--|:--|:--|
+| ultra-subtle | 0.005 | 46+ dB |
+| recommended (default) | 0.01 | 40 dB |
+| moderate | 0.02 | 34 dB |
+| aggressive | 0.04 | 28 dB |
 
----
+The API clamps `ε` to `[0.001, 0.1]`.
 
-# Privacy Features
+## Grad-CAM
 
-AWS was designed around a local-first workflow focused on creator privacy.
+The custom `GradCAM` class hooks `model.layer4[-1]` (forward activations, full backward gradients). Channel weights come from global-average-pooling the gradients. The weighted activation sum goes through ReLU, bilinear upsampling and min-max normalization, then a jet-style colormap written in NumPy (no OpenCV or matplotlib) and an alpha blend at 0.45. Maps are produced for the clean and the perturbed image so the attention shift is visible side by side.
 
-Features include:
+## Watermark
 
-- Automatic EXIF metadata stripping
-- No external image uploads or cloud inference requirements
-- In-memory image processing pipeline
-- Optional invisible LSB watermark embedding for ownership tracking
+Optional ownership tag embedded by `embed_watermark`: the text is encoded as 8-bit ASCII plus a null terminator and written into the least significant bit of the flattened RGB bytes with a `0xFE` clear mask. It is fully vectorized in NumPy, with no per-pixel Python loop.
 
----
+## HTTP API
 
-# Application Stack
+| Method | Route | Input | Output |
+|:--|:--|:--|:--|
+| `GET` | `/` | | Web UI (`templates/index.html`) |
+| `POST` | `/poison` | multipart: `image`, `epsilon`, `attack_mode` (`fgsm` \| `pgd`), `target_class` (ImageNet index), `watermark` | JSON: previews, full-res download, Grad-CAM pair, PSNR, top-3 predictions before/after, `timings` |
+| `GET` | `/status/<task_id>` | | Celery task state, progress, result |
+| `POST` | `/poison/batch` | multipart: `archive` (.zip), `epsilon` | ZIP of `<name>_poisoned.png` files plus `summary.txt` with per-file PSNR |
 
-AWS was built as a lightweight full-stack application.
+Previews are capped at 1200 px and encoded as JPEG q80 to keep JSON payloads small. The download copy keeps full resolution at q92. Batches allow up to 100 images and skip `__MACOSX` entries.
 
-## Backend
+## Execution model
 
-- Flask
-- PyTorch
-- Pillow
-- NumPy
-- Torchvision
-- Celery + Redis for asynchronous processing
+- **Celery over Redis.** `poison_task` decodes a base64 image, runs the pipeline and reports `STARTED` and `PROGRESS` states, polled through `/status/<task_id>`. JSON serialization, 1 h result expiry, 1 s broker connection timeout with retries disabled, so a missing broker fails fast.
+- **In-process.** `/poison` runs the same `_process_single_image` pipeline inside the Flask worker, so a request never waits on broker availability.
 
-## Frontend
+## Hardening
 
-- Custom HTML/CSS interface
-- Glassmorphism-inspired UI
-- Spline 3D integrations for interactive visuals
+- **Metadata.** EXIF and all other metadata are stripped by rebuilding each upload from raw RGB bytes (`Image.frombytes`), without re-encoding.
+- **Decompression bombs.** `Image.MAX_IMAGE_PIXELS = 25_000_000`, and uploads are fully decoded on open so the check fires early.
+- **Request size.** `MAX_CONTENT_LENGTH` is 200 MB. Image and archive extensions are allowlisted.
+- **Rate limits.** Flask-Limiter, per IP: 30/min on `/poison`, 5/min on `/poison/batch`, with defaults of 200/day and 60/hour.
+- **No disk I/O.** Images move PIL → tensor → PIL in memory. Nothing is written to disk during a request.
 
----
+## Setup
 
-# Features
-
-- Multi-attack adversarial protection
-- Batch ZIP processing
-- Real-time preview generation
-- Grad-CAM attention visualization
-- PSNR quality monitoring
-- GPU acceleration support (CUDA)
-- Web UI and CLI support
-
----
-
-# Protection Strength Guide
-
-| Setting | Epsilon | Visual Quality | Visibility |
-|---|---|---|---|
-| Ultra-Subtle | 0.005 | Very High | Virtually invisible |
-| Recommended | 0.010 | High | Indistinguishable |
-| Moderate | 0.020 | Medium | Minor grain on zoom |
-| Aggressive | 0.040 | Lower | Visible artifacts |
-
----
-
-# Installation
-
-## Prerequisites
-
-- Python 3.10+
-- Redis
-- NVIDIA GPU with CUDA support (recommended)
-
----
-
-## Clone the Repository
+Python 3.10+, Redis, optional NVIDIA GPU.
 
 ```bash
-git clone https://github.com/taranprits2/AWS-Artists-With-Soul-.git
+git clone https://github.com/Jai2379/AWS-Artists-With-Soul-.git
 cd AWS-Artists-With-Soul-
-```
-
----
-
-## Install Dependencies
-
-```bash
 pip install -r requirements.txt
-```
 
----
-
-## Optional CUDA Setup
-
-For NVIDIA GPU acceleration:
-
-```bash
-pip uninstall torch torchvision -y
+# optional CUDA build of PyTorch
+pip uninstall -y torch torchvision
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+python test_cuda.py
 ```
 
----
-
-# Running AWS
-
-## Web Application
-
-Start the following services in separate terminals.
-
-### Terminal 1 — Redis
+Run the service, one process per terminal:
 
 ```bash
 redis-server
+celery -A app.celery_app worker --loglevel=info --pool=solo   # solo pool for Windows
+python app.py                                                 # http://127.0.0.1:5000
 ```
 
-### Terminal 2 — Celery Worker
+CLI, single image, full-resolution untargeted FGSM:
 
 ```bash
-celery -A app.celery_app worker --loglevel=info --pool=solo
+python poison_engine.py artwork.jpg -e 0.01 -o protected.png
 ```
 
-### Terminal 3 — Flask Application
+## Repository
 
-```bash
-python app.py
+```
+.
+├── poison_engine.py        FGSM, PGD, Grad-CAM, PSNR, LSB watermark, CLI
+├── app.py                  Flask routes, Celery task, rate limiting, upload sanitizing
+├── templates/index.html    single-page frontend
+├── test_direct.py          timing breakdown of the pipeline on a 2000×2000 image
+├── test_client.py          end-to-end multipart request against /poison
+├── test_celery_timeout.py  broker fail-fast check
+├── test_cuda.py            CUDA availability check
+└── requirements.txt
 ```
 
-Then open:
+## Limitations and next steps
 
-```text
-http://127.0.0.1:5000
-```
-
----
-
-## CLI Mode
-
-For quick single-image protection:
-
-```bash
-python poison_engine.py my_artwork.jpg --epsilon 0.01 --output protected.png
-```
-
----
-
-# What We Learned
-
-Building AWS highlighted how fragile modern deep learning systems can be. Even highly capable vision models are vulnerable to extremely small, carefully structured perturbations.
-
-We also learned the importance of optimization when deploying ML systems on consumer hardware. Designing around lower-resolution adversarial passes made real-time processing practical without sacrificing meaningful attack strength.
-
----
-
-# Future Plans
-
-Future versions of AWS will move beyond a single-model approach by implementing ensemble-based adversarial generation.
-
-Instead of targeting only ResNet-50, upcoming versions aim to generate perturbations effective across multiple architectures, including:
-
-- Vision Transformers (ViTs)
-- Convolutional Neural Networks (CNNs)
-- Hybrid vision-language models
-
-The long-term goal is to provide creators with a more universal layer of protection against automated scraping and unauthorized AI training pipelines.
+- Perturbations are optimized against a single surrogate (ResNet-50). Transfer to other architectures is not measured yet. The next step is ensemble optimization across CNN and ViT models.
+- Downloads are JPEG-encoded (q92), and lossy re-encoding attenuates part of the perturbation. A lossless PNG path would keep the full signal.
